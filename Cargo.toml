@@ -1,0 +1,10 @@
+[package]
+name = "SealEngine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bytemuck = "1.23.0"
+pollster = "0.4.0"
+wgpu = "24.0.3"
+winit = "0.30.10"
