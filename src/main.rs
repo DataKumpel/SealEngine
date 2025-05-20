@@ -1,3 +1,5 @@
+mod model;
+
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
@@ -5,10 +7,14 @@ use winit::window::{Window, WindowId};
 use wgpu::util::DeviceExt;
 use std::sync::Arc;
 
+
+///// VERTEX STRUCTURE /////////////////////////////////////////////////////////////////////////////
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
-    position: [f32; 2],
+    position: [f32; 3],
+    normal: [f32; 3],
+    tex_coords: [f32; 2],
 }
 
 impl Vertex {
@@ -16,16 +22,29 @@ impl Vertex {
         wgpu::VertexBufferLayout { 
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress, 
             step_mode: wgpu::VertexStepMode::Vertex, 
-            attributes: &[wgpu::VertexAttribute {
-                offset: 0,
-                shader_location: 0,
-                format: wgpu::VertexFormat::Float32x2,
-            }], 
+            attributes: &[
+                wgpu::VertexAttribute { // Position
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute { // Normal
+                    offset: 12,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute { // Texture Coordinates
+                    offset: 24,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+            ], 
         }
     }
 }
+///// VERTEX STRUCTURE /////////////////////////////////////////////////////////////////////////////
 
-
+///// STATE STRUCTURE //////////////////////////////////////////////////////////////////////////////
 struct State {
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
@@ -71,7 +90,7 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        ///// LOAD SHADERS /////////////////////////////////////////////////////////////////////////
+        // ---> Load shaders:
         let shader = device.create_shader_module(
             wgpu::ShaderModuleDescriptor { 
                 label: Some("Shader"), 
@@ -80,13 +99,10 @@ impl State {
                 ),
             }
         );
-        ///// LOAD SHADERS /////////////////////////////////////////////////////////////////////////
 
-        ///// VERTEX DATA FOR TRIANGLE /////////////////////////////////////////////////////////////
-        let vertices = [
-            Vertex { position: [ 0.0,  0.5] },
-            Vertex { position: [-0.5, -0.5] },
-            Vertex { position: [ 0.5, -0.5] },
+        // ---> Vertex Data for a triangle (DEPRECATED!!!)
+        let vertices: [Vertex; 0] = [
+
         ];
 
         let vertex_buffer = device.create_buffer_init(
@@ -96,9 +112,8 @@ impl State {
                 usage: wgpu::BufferUsages::VERTEX,
             },
         );
-        ///// VERTEX DATA FOR TRIANGLE /////////////////////////////////////////////////////////////
 
-        ///// CREATE PIPELINE //////////////////////////////////////////////////////////////////////
+        // ---> Create pipeline:
         let render_pipeline_layout = device.create_pipeline_layout(
             &wgpu::PipelineLayoutDescriptor { 
                 label: Some("Render Pipeline Layout"), 
@@ -134,7 +149,6 @@ impl State {
                 cache: None,
              },
         );
-        ///// CREATE PIPELINE //////////////////////////////////////////////////////////////////////
 
         Self {
             surface, device, queue, config, size, render_pipeline, vertex_buffer, 
@@ -152,7 +166,7 @@ impl State {
     }
 
     fn render(&mut self) {
-        // Get current image (FrameBuffer):
+        // ---> Get current image (FrameBuffer):
         let output = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(_) => {
@@ -163,10 +177,10 @@ impl State {
         };
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        // Command encoder for GPU commands:
+        // ---> Command encoder for GPU commands:
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        ///// STARTING RENDER PASS /////////////////////////////////////////////////////////////////
+        // ---> Starting render pass:
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { 
                 label: Some("Render Pass"), 
@@ -188,15 +202,16 @@ impl State {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.draw(0..self.num_vertices, 0..1);
         }
-        ///// END OF RENDER PASS ///////////////////////////////////////////////////////////////////
+        // ---> End of render pass...
 
-        // Send to GPU to render the image:
+        // ---> Send to GPU to render the image:
         self.queue.submit(Some(encoder.finish()));
         output.present();
     }
 }
+///// STATE STRUCTURE //////////////////////////////////////////////////////////////////////////////
 
-
+///// APP STRUCTURE ////////////////////////////////////////////////////////////////////////////////
 #[derive(Default)]
 struct App {
     window: Option<Arc<Window>>,
@@ -205,12 +220,12 @@ struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        // Create a window:
+        // ---> Create a window:
         let window = Arc::new(event_loop.create_window(
                 Window::default_attributes().with_title("SealEngine v0.1 (alpha)")
         ).unwrap());
         
-        // Async initialization for wgpu:
+        // ---> Async initialization for wgpu:
         let state = pollster::block_on(State::new(&window.clone()));
         self.window = Some(window.clone());
         self.state = Some(state);
@@ -235,8 +250,9 @@ impl ApplicationHandler for App {
         }
     }
 }
+///// APP STRUCTURE ////////////////////////////////////////////////////////////////////////////////
 
-
+///// MAIN PROGRAM /////////////////////////////////////////////////////////////////////////////////
 fn main() {
     let event_loop = EventLoop::new().unwrap();
     
@@ -244,3 +260,4 @@ fn main() {
     
     event_loop.run_app(&mut app).unwrap();
 }
+///// MAIN PROGRAM /////////////////////////////////////////////////////////////////////////////////

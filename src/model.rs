@@ -1,0 +1,56 @@
+/*
+
+    Implementation of a basic gltf model loader.
+
+*/
+
+
+use std::path::Path;
+use wgpu::util::DeviceExt;
+
+
+///// MATERIAL STRUCTURE ///////////////////////////////////////////////////////////////////////////
+struct Material {
+
+}
+///// MATERIAL STRUCTURE ///////////////////////////////////////////////////////////////////////////
+
+///// TEXTURE STRUCTURE ////////////////////////////////////////////////////////////////////////////
+struct Texture {
+
+}
+///// TEXTURE STRUCTURE ////////////////////////////////////////////////////////////////////////////
+
+///// MESH STRUCTURE ///////////////////////////////////////////////////////////////////////////////
+struct Mesh {
+    name: String,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    num_indices: u32,
+    material_index: usize,
+}
+///// MESH STRUCTURE ///////////////////////////////////////////////////////////////////////////////
+
+///// MODEL STRUCTURE //////////////////////////////////////////////////////////////////////////////
+struct Model {
+    meshes: Vec<Mesh>,
+    materials: Vec<Material>,
+}
+///// MODEL STRUCTURE //////////////////////////////////////////////////////////////////////////////
+
+
+pub fn load_model(file_name: &str, 
+                  device: &wgpu::Device, 
+                  queue: &wgpu::Queue) -> anyhow::Result<Model> {
+    // ---> Load gltf-file:
+    let (document, buffers, images) = gltf::import(file_name)?;
+
+    let mut meshes = Vec::new();
+    let mut materials = Vec::new();
+
+    // ---> Load materials:
+    // TODO...
+
+    // ---> Load all meshes:
+    // TODO...
+}
