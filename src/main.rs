@@ -8,42 +8,6 @@ use wgpu::util::DeviceExt;
 use std::sync::Arc;
 
 
-///// VERTEX STRUCTURE /////////////////////////////////////////////////////////////////////////////
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    normal: [f32; 3],
-    tex_coords: [f32; 2],
-}
-
-impl Vertex {
-    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        wgpu::VertexBufferLayout { 
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress, 
-            step_mode: wgpu::VertexStepMode::Vertex, 
-            attributes: &[
-                wgpu::VertexAttribute { // Position
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute { // Normal
-                    offset: 12,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute { // Texture Coordinates
-                    offset: 24,
-                    shader_location: 2,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-            ], 
-        }
-    }
-}
-///// VERTEX STRUCTURE /////////////////////////////////////////////////////////////////////////////
-
 ///// STATE STRUCTURE //////////////////////////////////////////////////////////////////////////////
 struct State {
     surface: wgpu::Surface<'static>,
@@ -101,7 +65,7 @@ impl State {
         );
 
         // ---> Vertex Data for a triangle (DEPRECATED!!!)
-        let vertices: [Vertex; 0] = [
+        let vertices: [model::Vertex; 0] = [
 
         ];
 
@@ -130,7 +94,7 @@ impl State {
                     module: &shader, 
                     entry_point: Some("vs_main"), 
                     compilation_options: wgpu::PipelineCompilationOptions::default(), 
-                    buffers: &[Vertex::desc()], 
+                    buffers: &[model::Vertex::desc()], 
                 }, 
                 primitive: wgpu::PrimitiveState::default(), 
                 depth_stencil: None, 
@@ -178,7 +142,9 @@ impl State {
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         // ---> Command encoder for GPU commands:
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut encoder = self.device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor { label: None }
+        );
 
         // ---> Starting render pass:
         {
@@ -231,7 +197,10 @@ impl ApplicationHandler for App {
         self.state = Some(state);
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {
+    fn window_event(&mut self, 
+                    event_loop: &ActiveEventLoop, 
+                    _window_id: WindowId, 
+                    event: WindowEvent) {
         match event {
             WindowEvent::RedrawRequested => {
                 if let Some(state) = self.state.as_mut() {
