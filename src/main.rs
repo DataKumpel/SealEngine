@@ -1,4 +1,5 @@
 mod model;
+mod camera;
 
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::application::ApplicationHandler;

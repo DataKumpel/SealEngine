@@ -48,7 +48,7 @@ fn vs_main(vertex: VertexInput) -> VertexOutput {
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // ---> Simple illumination:
     let light_dir = normalize(vec3<f32>(1.0, 1.0, 1.0));
-    let normal = normalize(in.normal)
+    let normal = normalize(in.normal);
 
     // ---> Diffuse illumination:
     let diff = max(dot(normal, light_dir), 0.0);

@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.98"
 bytemuck = "1.23.0"
+glm = "0.2.3"
 gltf = "1.4.1"
 image = "0.25.6"
 pollster = "0.4.0"
