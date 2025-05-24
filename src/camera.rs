@@ -1,4 +1,3 @@
-use gltf::json::camera;
 use nalgebra_glm as glm;
 
 
@@ -35,11 +34,11 @@ impl Camera {
 ///// CAMERA UNIFORM STRUCTURE /////////////////////////////////////////////////////////////////////
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct CamerUniform {
+pub struct CameraUniform {
     view_proj: [[f32; 4]; 4],
 }
 
-impl CamerUniform {
+impl CameraUniform {
     fn new() -> Self {
         Self {
             view_proj: glm::Mat4::identity().into(),

@@ -7,6 +7,7 @@
 
 use std::path::Path;
 use wgpu::util::DeviceExt;
+use nalgebra_glm as glm;
 
 
 ///// VERTEX STRUCTURE /////////////////////////////////////////////////////////////////////////////
@@ -80,6 +81,31 @@ pub struct Model {
     materials: Vec<Material>,
 }
 ///// MODEL STRUCTURE //////////////////////////////////////////////////////////////////////////////
+
+///// MODEL UNIFORM STRUCTURE //////////////////////////////////////////////////////////////////////
+pub struct ModelUniform {
+    model: [[f32; 4]; 4],
+}
+
+impl ModelUniform {
+    fn new() -> Self {
+        Self {
+            model: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        }
+    }
+
+    fn from_matrix(matrix: glm::Mat4) -> Self {
+        Self {
+            model: matrix.into(),
+        }
+    }
+}
+///// MODEL UNIFORM STRUCTURE //////////////////////////////////////////////////////////////////////
 
 ///// MODEL LOADING PROCEDURE //////////////////////////////////////////////////////////////////////
 pub fn load_model(file_name: &str, 
