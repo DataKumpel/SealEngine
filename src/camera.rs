@@ -1,3 +1,6 @@
+use gltf::json::camera;
+use nalgebra_glm as glm;
+
 
 ///// CAMERA STRUCTURE /////////////////////////////////////////////////////////////////////////////
 pub struct Camera {
@@ -12,8 +15,8 @@ pub struct Camera {
 
 impl Camera {
     pub fn build_view_projection_matrix(&self) -> glm::Mat4 {
-        let view = glm::ext::look_at(self.eye, self.target, self.up);
-        let proj = glm::ext::perspective(self.fovy, self.aspect, self.z_near, self.z_far);
+        let view = glm::look_at(&self.eye, &self.target, &self.up);
+        let proj = glm::perspective(self.fovy, self.aspect, self.z_near, self.z_far);
 
         // ---> WebGPU renders its y-axis upside-down (in contrast to OpenGL)...
         // ---> Need a correction for that:
@@ -29,3 +32,22 @@ impl Camera {
 }
 ///// CAMERA STRUCTURE /////////////////////////////////////////////////////////////////////////////
 
+///// CAMERA UNIFORM STRUCTURE /////////////////////////////////////////////////////////////////////
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct CamerUniform {
+    view_proj: [[f32; 4]; 4],
+}
+
+impl CamerUniform {
+    fn new() -> Self {
+        Self {
+            view_proj: glm::Mat4::identity().into(),
+        }
+    }
+
+    fn update_view_proj(&mut self, camera: &Camera) {
+        self.view_proj = camera.build_view_projection_matrix().into();
+    }
+}
+///// CAMERA UNIFORM STRUCTURE /////////////////////////////////////////////////////////////////////
