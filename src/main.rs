@@ -245,7 +245,7 @@ impl State {
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
-                    front_face: wgpu::FrontFace::Ccw,  // Right handed coordinate space!
+                    front_face: wgpu::FrontFace::Cw,  // Right handed coordinate space!
                     cull_mode: Some(wgpu::Face::Back),
                     unclipped_depth: false,
                     polygon_mode: wgpu::PolygonMode::Fill,
@@ -320,7 +320,7 @@ impl State {
                     resolve_target: None, 
                     ops: wgpu::Operations { 
                         // ---> Background color:
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.1, g: 0.2, b: 0.3, a: 1.0 }), 
+                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }), 
                         store: wgpu::StoreOp::Store,
                     },
                 })], 
@@ -348,6 +348,12 @@ impl State {
                     render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                     render_pass.set_index_buffer(mesh.index_buffer.slice(..), 
                                                  wgpu::IndexFormat::Uint32);
+                    
+                    // ---> Set material bind group (if implemented):
+                    if mesh.material_index < model.materials.len() {
+                        render_pass.set_bind_group(2, &model.materials[mesh.material_index].bind_group, &[]);
+                    }
+
                     render_pass.draw_indexed(0..mesh.num_indices, 0, 0..1);
                 }
             }
