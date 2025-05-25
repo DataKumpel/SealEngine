@@ -4,8 +4,6 @@
 
 */
 
-
-use std::path::Path;
 use wgpu::util::DeviceExt;
 use nalgebra_glm as glm;
 
@@ -46,24 +44,130 @@ impl Vertex {
 }
 ///// VERTEX STRUCTURE /////////////////////////////////////////////////////////////////////////////
 
-///// MATERIAL STRUCTURE ///////////////////////////////////////////////////////////////////////////
-pub struct Material {
-    pub name: String,
-    pub diffuse_texture: Option<Texture>,
-    pub normal_texture: Option<Texture>,
-    pub metallic_texture: Option<Texture>,
-    // ...ETC...
-    pub bind_group: wgpu::BindGroup,  // For the shader...
-}
-///// MATERIAL STRUCTURE ///////////////////////////////////////////////////////////////////////////
-
 ///// TEXTURE STRUCTURE ////////////////////////////////////////////////////////////////////////////
+#[derive(Debug)]
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
 }
 ///// TEXTURE STRUCTURE ////////////////////////////////////////////////////////////////////////////
+
+///// TEXTURE LOADING PROCEDURE ////////////////////////////////////////////////////////////////////
+pub fn load_texture_from_image(image: &gltf::image::Data, 
+                               device: &wgpu::Device, 
+                               queue: &wgpu::Queue, 
+                               label: Option<&str>) -> anyhow::Result<Texture> {
+        let size = wgpu::Extent3d {
+            width: image.width,
+            height: image.height,
+            depth_or_array_layers: 1,
+        };
+
+        let texture = device.create_texture(
+            &wgpu::TextureDescriptor {
+                label,
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+        );
+
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                aspect: wgpu::TextureAspect::All,
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+            },
+            &image.pixels,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * image.width),
+                rows_per_image: Some(image.height),
+            },
+            size,
+        );
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = device.create_sampler(
+            &wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::Repeat,
+                address_mode_v: wgpu::AddressMode::Repeat,
+                address_mode_w: wgpu::AddressMode::Repeat,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Nearest,
+                ..Default::default()
+            },
+        );
+
+        Ok(Texture { texture, view, sampler })
+    }
+///// TEXTURE LOADING PROCEDURE ////////////////////////////////////////////////////////////////////
+
+///// DEFAULT WHITE TEXTURE PROCEDURE //////////////////////////////////////////////////////////////
+fn create_default_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> anyhow::Result<Texture> {
+    let size = wgpu::Extent3d {
+        width: 1,
+        height: 1,
+        depth_or_array_layers: 1,
+    };
+
+    let texture = device.create_texture(
+        &wgpu::TextureDescriptor {
+            label: Some("Default Texture"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        },
+    );
+
+    // ---> Data for a white pixel:
+    let white_pixel: [u8; 4] = [255, 255, 255, 255];
+
+    queue.write_texture(
+        wgpu::TexelCopyTextureInfo {
+            aspect: wgpu::TextureAspect::All,
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+        },
+        &white_pixel,
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(4),
+            rows_per_image: Some(1),
+        },
+        size,
+    );
+
+    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
+
+    Ok(Texture { texture, view, sampler })
+}
+///// DEFAULT WHITE TEXTURE PROCEDURE //////////////////////////////////////////////////////////////
+
+///// MATERIAL STRUCTURE ///////////////////////////////////////////////////////////////////////////
+pub struct Material {
+    pub name: String,
+    pub diffuse_texture: Option<Texture>,
+    pub normal_texture: Option<Texture>,
+    pub metallic_roughness_texture: Option<Texture>,
+    pub base_color_factor: [f32; 4],  // RGBA values for color
+    pub metallic_factor: f32,
+    pub roughness_factor: f32,
+    pub bind_group: wgpu::BindGroup,  // For the shader...
+}
+///// MATERIAL STRUCTURE ///////////////////////////////////////////////////////////////////////////
 
 ///// MESH STRUCTURE ///////////////////////////////////////////////////////////////////////////////
 pub struct Mesh {
@@ -119,9 +223,150 @@ pub fn load_model(file_name: &str,
     let mut meshes = Vec::new();
     let mut materials = Vec::new();
 
+    // ---> Create material bind group layout:
+    let material_bind_group_layout = device.create_bind_group_layout(
+        &wgpu::BindGroupLayoutDescriptor { 
+            label: Some("Material bind group layout"), 
+            entries: &[
+                // Diffuse texture:
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture { 
+                        sample_type: wgpu::TextureSampleType::Float { 
+                            filterable: true, 
+                        }, 
+                        view_dimension: wgpu::TextureViewDimension::D2, 
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                
+                // Diffuse sampler:
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+
+                // Normal texture (optional):
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture { 
+                        sample_type: wgpu::TextureSampleType::Float { 
+                            filterable: true,
+                        }, 
+                        view_dimension: wgpu::TextureViewDimension::D2, 
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+
+                // Normal sampler (optional):
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        },
+    );
+
+    // ---> Create default white texture for materials without texture:
+    let default_texture = create_default_texture(device, queue)?;
+    
     // ---> Load materials:
     for material in document.materials() {
-        // TODO...
+        let pbr = material.pbr_metallic_roughness();
+
+        // ---> Name of the material:
+        let name = material.name().unwrap_or("unnamed").to_string();
+
+        // ---> Material values:
+        let base_color_factor = pbr.base_color_factor();
+        let metallic_factor = pbr.metallic_factor();
+        let roughness_factor = pbr.roughness_factor();
+
+        // ---> Load diffuse/albedo texture:
+        let diffuse_texture = if let Some(info) = pbr.base_color_texture() {
+            let image = &images[info.texture().index()];
+            Some(load_texture_from_image(image, device, queue, Some(&format!("{}_diffuse", name)))?)
+        } else {
+            None
+        };
+
+        // ---> Load normal map (optional):
+        let normal_texture = if let Some(info) = material.normal_texture() {
+            let image = &images[info.texture().index()];
+            Some(load_texture_from_image(image, device, queue, Some(&format!("{}_normal", name)))?)
+        } else {
+            None
+        };
+
+        // ---> Load metallic roughness texture (optional):
+        let metallic_roughness_texture = if let Some(info) = pbr.metallic_roughness_texture() {
+            let image = &images[info.texture().index()];
+            Some(load_texture_from_image(image, device, queue, Some(&format!("{}_metallic_roughness", name)))?)
+        } else {
+            None
+        };
+
+        // ---> Create bind group for this material:
+        let bind_group = device.create_bind_group(
+            &wgpu::BindGroupDescriptor { 
+                label: Some(&format!("Material Bind Group: {}", name)), 
+                layout: &material_bind_group_layout, 
+                entries: &[
+                    // Diffuse texture:
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(
+                            &diffuse_texture.as_ref().unwrap_or(&default_texture).view,
+                        ),
+                    },
+
+                    // Diffuse sampler:
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(
+                            &diffuse_texture.as_ref().unwrap_or(&default_texture).sampler,
+                        ),
+                    },
+
+                    // Normal texture:
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(
+                            &normal_texture.as_ref().unwrap_or(&default_texture).view,
+                        ),
+                    },
+
+                    // Normal sampler:
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::Sampler(
+                            &normal_texture.as_ref().unwrap_or(&default_texture).sampler,
+                        ),
+                    },
+                ],
+            },
+        );
+
+        materials.push(
+            Material { 
+                name, 
+                diffuse_texture, 
+                normal_texture, 
+                metallic_roughness_texture, 
+                base_color_factor, 
+                metallic_factor, 
+                roughness_factor, 
+                bind_group,
+            },
+        );
     }
 
     // ---> Load all meshes:
