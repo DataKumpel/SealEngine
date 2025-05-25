@@ -14,9 +14,9 @@ use nalgebra_glm as glm;
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
-    position: [f32; 3],
-    normal: [f32; 3],
-    tex_coords: [f32; 2],
+    pub position: [f32; 3],
+    pub normal: [f32; 3],
+    pub tex_coords: [f32; 2],
 }
 
 impl Vertex {
@@ -48,12 +48,12 @@ impl Vertex {
 
 ///// MATERIAL STRUCTURE ///////////////////////////////////////////////////////////////////////////
 pub struct Material {
-    name: String,
-    diffuse_texture: Option<Texture>,
-    normal_texture: Option<Texture>,
-    metallic_texture: Option<Texture>,
+    pub name: String,
+    pub diffuse_texture: Option<Texture>,
+    pub normal_texture: Option<Texture>,
+    pub metallic_texture: Option<Texture>,
     // ...ETC...
-    bind_group: wgpu::BindGroup,  // For the shader...
+    pub bind_group: wgpu::BindGroup,  // For the shader...
 }
 ///// MATERIAL STRUCTURE ///////////////////////////////////////////////////////////////////////////
 
@@ -67,18 +67,18 @@ pub struct Texture {
 
 ///// MESH STRUCTURE ///////////////////////////////////////////////////////////////////////////////
 pub struct Mesh {
-    name: String,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_indices: u32,
-    material_index: usize,
+    pub name: String,
+    pub vertex_buffer: wgpu::Buffer,
+    pub index_buffer: wgpu::Buffer,
+    pub num_indices: u32,
+    pub material_index: usize,
 }
 ///// MESH STRUCTURE ///////////////////////////////////////////////////////////////////////////////
 
 ///// MODEL STRUCTURE //////////////////////////////////////////////////////////////////////////////
 pub struct Model {
-    meshes: Vec<Mesh>,
-    materials: Vec<Material>,
+    pub meshes: Vec<Mesh>,
+    pub materials: Vec<Material>,
 }
 ///// MODEL STRUCTURE //////////////////////////////////////////////////////////////////////////////
 

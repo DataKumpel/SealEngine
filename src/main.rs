@@ -294,7 +294,7 @@ impl State {
         }
     }
 
-    fn render(&mut self) {
+    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         // ---> Get current image (FrameBuffer):
         let output = match self.surface.get_current_texture() {
             Ok(frame) => frame,
@@ -324,20 +324,41 @@ impl State {
                         store: wgpu::StoreOp::Store,
                     },
                 })], 
-                depth_stencil_attachment: None, 
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment { 
+                    view: &self.depth_texture.view, 
+                    depth_ops: Some(wgpu::Operations { 
+                        load: wgpu::LoadOp::Clear(1.0), 
+                        store: wgpu::StoreOp::Store, 
+                    }), 
+                    stencil_ops: None, 
+                }), 
                 timestamp_writes: None, 
                 occlusion_query_set: None, 
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..self.num_vertices, 0..1);
+
+            // ---> Set bind groups for camera and model:
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]); // Camera data
+            render_pass.set_bind_group(1, &self.model_bind_group, &[]);  // Model transformations
+
+            // ---> Render model (if exists...):
+            if let Some(model) = &self.model {
+                for mesh in &model.meshes {
+                    render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(mesh.index_buffer.slice(..), 
+                                                 wgpu::IndexFormat::Uint32);
+                    render_pass.draw_indexed(0..mesh.num_indices, 0, 0..1);
+                }
+            }
         }
         // ---> End of render pass...
 
         // ---> Send to GPU to render the image:
         self.queue.submit(Some(encoder.finish()));
         output.present();
+
+        Ok(())
     }
 }
 ///// STATE STRUCTURE //////////////////////////////////////////////////////////////////////////////
@@ -369,7 +390,7 @@ impl ApplicationHandler for App {
         match event {
             WindowEvent::RedrawRequested => {
                 if let Some(state) = self.state.as_mut() {
-                    state.render();
+                    state.render().unwrap();
                 }
             }
             WindowEvent::Resized(new_size) => {
