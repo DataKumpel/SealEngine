@@ -58,9 +58,41 @@ pub fn load_texture_from_image(image: &gltf::image::Data,
                                device: &wgpu::Device, 
                                queue: &wgpu::Queue, 
                                label: Option<&str>) -> anyhow::Result<Texture> {
+        // ---> Convert image to RGBA:
+        let dynamic_image = match image.format {
+            gltf::image::Format::R8G8B8 => {
+                        let rgb_image = image::RgbImage::from_raw(image.width, image.height, image.pixels.clone())
+                                                         .ok_or_else(|| anyhow::anyhow!("Failed to create RGB image!"))?;
+                        image::DynamicImage::ImageRgb8(rgb_image)
+                    },
+            gltf::image::Format::R8G8B8A8 => {
+                        let rgba_image = image::RgbaImage::from_raw(image.width, image.height, image.pixels.clone())
+                                                           .ok_or_else(|| anyhow::anyhow!("Failed to create RGBA image!"))?;
+                        image::DynamicImage::ImageRgba8(rgba_image)
+                    },
+            gltf::image::Format::R8 => {
+                        let gray_image = image::GrayImage::from_raw(image.width, image.height, image.pixels.clone())
+                                                           .ok_or_else(|| anyhow::anyhow!("Failed to create gray image!"))?;
+                        image::DynamicImage::ImageLuma8(gray_image)
+                    }
+            gltf::image::Format::R8G8 => {
+                        let gray_alpha_image = image::GrayAlphaImage::from_raw(image.width, image.height, image.pixels.clone())
+                                                                      .ok_or_else(|| anyhow::anyhow!("Failed to create gray alpha image!"))?;
+                        image::DynamicImage::ImageLumaA8(gray_alpha_image)
+                    },
+            gltf::image::Format::R16 => todo!(),
+            gltf::image::Format::R16G16 => todo!(),
+            gltf::image::Format::R16G16B16 => todo!(),
+            gltf::image::Format::R16G16B16A16 => todo!(),
+            gltf::image::Format::R32G32B32FLOAT => todo!(),
+            gltf::image::Format::R32G32B32A32FLOAT => todo!(),
+        };
+        
+        let rgba = dynamic_image.to_rgba8();
+        
         let size = wgpu::Extent3d {
-            width: image.width,
-            height: image.height,
+            width: rgba.width(),
+            height: rgba.height(),
             depth_or_array_layers: 1,
         };
 
@@ -84,11 +116,11 @@ pub fn load_texture_from_image(image: &gltf::image::Data,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
-            &image.pixels,
+            &rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(4 * image.width),
-                rows_per_image: Some(image.height),
+                bytes_per_row: Some(4 * rgba.width()),
+                rows_per_image: Some(rgba.height()),
             },
             size,
         );
