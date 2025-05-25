@@ -290,7 +290,19 @@ impl State {
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
+
+            // ---> Reconfigure surface:
             self.surface.configure(&self.device, &self.config);
+
+            // ---> Recreate depth texture:
+            self.depth_texture = create_depth_texture(&self.device, &self.config);
+
+            // ---> Update camera aspect ratio:
+            self.camera.aspect = self.config.width as f32 / self.config.height as f32;
+            self.camera_uniform.update_view_proj(&self.camera);
+
+            // ---> Update camera uniform buffer:
+            self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[self.camera_uniform]));
         }
     }
 
@@ -395,8 +407,28 @@ impl ApplicationHandler for App {
                     event: WindowEvent) {
         match event {
             WindowEvent::RedrawRequested => {
-                if let Some(state) = self.state.as_mut() {
-                    state.render().unwrap();
+                if let Some(state) = &mut self.state {
+                    match state.render() {
+                        Ok(_) => {
+                            if let Some(window) = &self.window {
+                                window.request_redraw();
+                            }
+                        }
+                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                            // ---> Reconfigure surface:
+                            state.resize(state.size);
+                        }
+                        Err(wgpu::SurfaceError::OutOfMemory) => {
+                            eprintln!("Out of memory!");
+                            event_loop.exit();
+                        }
+                        Err(wgpu::SurfaceError::Timeout) => {
+                            eprintln!("Surface timeout!");
+                        }
+                        Err(e) => {
+                            eprintln!("Render error: {:?}", e);
+                        }
+                    }
                 }
             }
             WindowEvent::Resized(new_size) => {

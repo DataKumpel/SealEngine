@@ -61,25 +61,27 @@ pub fn load_texture_from_image(image: &gltf::image::Data,
         // ---> Convert image to RGBA:
         let dynamic_image = match image.format {
             gltf::image::Format::R8G8B8 => {
-                        let rgb_image = image::RgbImage::from_raw(image.width, image.height, image.pixels.clone())
-                                                         .ok_or_else(|| anyhow::anyhow!("Failed to create RGB image!"))?;
-                        image::DynamicImage::ImageRgb8(rgb_image)
-                    },
+                let rgb_image = image::RgbImage::from_raw(image.width, image.height, image.pixels.clone())
+                                                 .ok_or_else(|| anyhow::anyhow!("Failed to create RGB image!"))?;
+                image::DynamicImage::ImageRgb8(rgb_image)
+            },
             gltf::image::Format::R8G8B8A8 => {
-                        let rgba_image = image::RgbaImage::from_raw(image.width, image.height, image.pixels.clone())
-                                                           .ok_or_else(|| anyhow::anyhow!("Failed to create RGBA image!"))?;
-                        image::DynamicImage::ImageRgba8(rgba_image)
-                    },
+                let rgba_image = image::RgbaImage::from_raw(image.width, image.height, image.pixels.clone())
+                                                   .ok_or_else(|| anyhow::anyhow!("Failed to create RGBA image!"))?;
+                image::DynamicImage::ImageRgba8(rgba_image)
+            },
             gltf::image::Format::R8 => {
-                        let gray_image = image::GrayImage::from_raw(image.width, image.height, image.pixels.clone())
-                                                           .ok_or_else(|| anyhow::anyhow!("Failed to create gray image!"))?;
-                        image::DynamicImage::ImageLuma8(gray_image)
-                    }
+                let gray_image = image::GrayImage::from_raw(image.width, image.height, image.pixels.clone())
+                                                   .ok_or_else(|| anyhow::anyhow!("Failed to create gray image!"))?;
+                image::DynamicImage::ImageLuma8(gray_image)
+            }
             gltf::image::Format::R8G8 => {
-                        let gray_alpha_image = image::GrayAlphaImage::from_raw(image.width, image.height, image.pixels.clone())
-                                                                      .ok_or_else(|| anyhow::anyhow!("Failed to create gray alpha image!"))?;
-                        image::DynamicImage::ImageLumaA8(gray_alpha_image)
-                    },
+                let gray_alpha_image = image::GrayAlphaImage::from_raw(image.width, image.height, image.pixels.clone())
+                                                              .ok_or_else(|| anyhow::anyhow!("Failed to create gray alpha image!"))?;
+                image::DynamicImage::ImageLumaA8(gray_alpha_image)
+            },
+
+            // Let's assume those never happen :D
             gltf::image::Format::R16 => todo!(),
             gltf::image::Format::R16G16 => todo!(),
             gltf::image::Format::R16G16B16 => todo!(),
