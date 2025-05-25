@@ -59,9 +59,9 @@ pub struct Material {
 
 ///// TEXTURE STRUCTURE ////////////////////////////////////////////////////////////////////////////
 pub struct Texture {
-    texture: wgpu::Texture,
-    view: wgpu::TextureView,
-    sampler: wgpu::Sampler,
+    pub texture: wgpu::Texture,
+    pub view: wgpu::TextureView,
+    pub sampler: wgpu::Sampler,
 }
 ///// TEXTURE STRUCTURE ////////////////////////////////////////////////////////////////////////////
 
@@ -83,12 +83,14 @@ pub struct Model {
 ///// MODEL STRUCTURE //////////////////////////////////////////////////////////////////////////////
 
 ///// MODEL UNIFORM STRUCTURE //////////////////////////////////////////////////////////////////////
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelUniform {
     model: [[f32; 4]; 4],
 }
 
 impl ModelUniform {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             model: [
                 [1.0, 0.0, 0.0, 0.0],
@@ -99,7 +101,7 @@ impl ModelUniform {
         }
     }
 
-    fn from_matrix(matrix: glm::Mat4) -> Self {
+    pub fn from_matrix(matrix: glm::Mat4) -> Self {
         Self {
             model: matrix.into(),
         }
