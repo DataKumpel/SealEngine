@@ -217,6 +217,56 @@ impl State {
             },
         );
 
+        // ---> Create material bind group:
+        let material_bind_group_layout = device.create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor {
+                label: Some("Material bind group layout"),
+                entries: &[
+                    // Diffuse texture:
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture { 
+                            sample_type: wgpu::TextureSampleType::Float { 
+                                filterable: true 
+                            }, 
+                            view_dimension: wgpu::TextureViewDimension::D2, 
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // Diffuse sampler:
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    // Normal texture (optional):
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture { 
+                            sample_type: wgpu::TextureSampleType::Float { 
+                                filterable: true 
+                            }, 
+                            view_dimension: wgpu::TextureViewDimension::D2, 
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // Normal sampler:
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            },
+        );
+
+
         // ---> Create Depth Texture:
         let depth_texture = create_depth_texture(&device, &config);
 
@@ -225,8 +275,9 @@ impl State {
             &wgpu::PipelineLayoutDescriptor { 
                 label: Some("Render Pipeline Layout"), 
                 bind_group_layouts: &[
-                    &camera_bind_group_layout,
-                    &model_bind_group_layout,
+                    &camera_bind_group_layout,    // @group(0)
+                    &model_bind_group_layout,     // @group(1)
+                    &material_bind_group_layout,  // @group(2)
                 ], 
                 push_constant_ranges: &[],
             },
@@ -245,7 +296,7 @@ impl State {
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
-                    front_face: wgpu::FrontFace::Cw,  // Right handed coordinate space!
+                    front_face: wgpu::FrontFace::Ccw,  // Right handed coordinate space!
                     cull_mode: Some(wgpu::Face::Back),
                     unclipped_depth: false,
                     polygon_mode: wgpu::PolygonMode::Fill,
@@ -275,7 +326,8 @@ impl State {
         );
 
         // ---> Load a Model (test):
-        let model = model::load_model("models/Bridge.glb", &device, &queue).ok();
+        let model = model::load_model("models/Bridge.glb", &device, &queue, 
+                                      &material_bind_group_layout).ok();
         
         Self {
             surface, device, queue, config, size, render_pipeline,

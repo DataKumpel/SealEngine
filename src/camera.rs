@@ -21,7 +21,7 @@ impl Camera {
         // ---> Need a correction for that:
         let correction = glm::mat4(
             1.0,  0.0, 0.0, 0.0, // x -->  x
-            0.0, -1.0, 0.0, 0.0, // y --> -y
+            0.0,  1.0, 0.0, 0.0, // y --> -y
             0.0,  0.0, 1.0, 0.0, // z -->  z
             0.0,  0.0, 0.0, 1.0, // w -->  w
         );

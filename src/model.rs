@@ -250,64 +250,13 @@ impl ModelUniform {
 ///// MODEL LOADING PROCEDURE //////////////////////////////////////////////////////////////////////
 pub fn load_model(file_name: &str, 
                   device: &wgpu::Device, 
-                  queue: &wgpu::Queue) -> anyhow::Result<Model> {
+                  queue: &wgpu::Queue,
+                  material_bind_group_layout: &wgpu::BindGroupLayout) -> anyhow::Result<Model> {
     // ---> Load gltf-file:
     let (document, buffers, images) = gltf::import(file_name)?;
 
     let mut meshes = Vec::new();
     let mut materials = Vec::new();
-
-    // ---> Create material bind group layout:
-    let material_bind_group_layout = device.create_bind_group_layout(
-        &wgpu::BindGroupLayoutDescriptor { 
-            label: Some("Material bind group layout"), 
-            entries: &[
-                // Diffuse texture:
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture { 
-                        sample_type: wgpu::TextureSampleType::Float { 
-                            filterable: true, 
-                        }, 
-                        view_dimension: wgpu::TextureViewDimension::D2, 
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                
-                // Diffuse sampler:
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-
-                // Normal texture (optional):
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture { 
-                        sample_type: wgpu::TextureSampleType::Float { 
-                            filterable: true,
-                        }, 
-                        view_dimension: wgpu::TextureViewDimension::D2, 
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-
-                // Normal sampler (optional):
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        },
-    );
 
     // ---> Create default white texture for materials without texture:
     let default_texture = create_default_texture(device, queue)?;
