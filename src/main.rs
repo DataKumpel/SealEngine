@@ -6,7 +6,6 @@ use camera::CameraUniform;
 use model::Model;
 use model::ModelUniform;
 use model::Texture;
-use wgpu::util::DeviceExt;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
