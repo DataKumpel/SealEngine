@@ -16,17 +16,7 @@ impl Camera {
     pub fn build_view_projection_matrix(&self) -> glm::Mat4 {
         let view = glm::look_at(&self.eye, &self.target, &self.up);
         let proj = glm::perspective(self.fovy, self.aspect, self.z_near, self.z_far);
-
-        // ---> WebGPU renders its y-axis upside-down (in contrast to OpenGL)...
-        // ---> Need a correction for that:
-        let correction = glm::mat4(
-            1.0,  0.0, 0.0, 0.0, // x -->  x
-            0.0,  1.0, 0.0, 0.0, // y --> -y
-            0.0,  0.0, 1.0, 0.0, // z -->  z
-            0.0,  0.0, 0.0, 1.0, // w -->  w
-        );
-
-        return correction * proj * view;
+        return proj * view;
     }
 }
 ///// CAMERA STRUCTURE /////////////////////////////////////////////////////////////////////////////
