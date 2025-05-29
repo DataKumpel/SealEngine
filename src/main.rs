@@ -1,5 +1,6 @@
 mod model;
 mod camera;
+mod input;
 
 use camera::Camera;
 use camera::CameraUniform;
