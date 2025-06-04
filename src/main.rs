@@ -601,6 +601,9 @@ impl ApplicationHandler for App {
                 match event {
                     WindowEvent::RedrawRequested => {
                         if let Some(state) = &mut self.state {
+                            // ---> Update before rendering:
+                            state.update();
+                            
                             match state.render() {
                                 Ok(_) => {
                                     if let Some(window) = &self.window {
