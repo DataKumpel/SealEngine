@@ -2,17 +2,27 @@ mod model;
 mod camera;
 mod input;
 
+// ---> Intern dependencies:
 use camera::Camera;
 use camera::CameraUniform;
+use camera::CameraController;
 use model::Model;
 use model::ModelUniform;
 use model::Texture;
+use input::InputState;
+
+// ---> Extern dependencies:
 use wgpu::util::DeviceExt;
-use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::event_loop::ActiveEventLoop;
+use winit::event_loop:: EventLoop;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
-use winit::window::{Window, WindowId};
+use winit::window::Window;
+use winit::window::WindowId;
+use winit::keyboard::KeyCode;
 use std::sync::Arc;
+use std::time::Instant;
+use std::time::Duration;
 
 
 ///// DEPTH BUFFER CREATION PROCEDURE //////////////////////////////////////////////////////////////
@@ -252,12 +262,17 @@ struct State {
 
     // Camera:
     camera_state: CameraState,
+    camera_controller: CameraController,
 
     // Model:
     model_uniform_state: ModelUniformState,
 
     // Depth-buffer:
-    depth_texture: Texture
+    depth_texture: Texture,
+
+    // Input & Timing:
+    input: InputState,
+    last_update_time: Instant,
 }
 
 impl State {
@@ -409,7 +424,54 @@ impl State {
         model_uniform_state.model = model::load_model("models/Bridge.glb", &gpu.device, &gpu.queue, 
                                                       &material_bind_group_layout).ok();
         
-        Self { gpu, size, render_pipeline, camera_state, model_uniform_state, depth_texture }
+        // ---> Create Camera Controller:
+        let camera_controller = CameraController::new(2.5);
+
+        // ---> Create Input system:
+        let input = InputState::new();
+        let last_update_time = Instant::now();
+
+        Self { gpu, size, render_pipeline, camera_state, camera_controller, model_uniform_state, depth_texture, input, last_update_time }
+    }
+
+    fn handle_input(&mut self, event: &WindowEvent) -> bool {
+        self.input.handle_window_event(event);
+
+        // ---> Was the input event consumed?
+        match event {
+            WindowEvent::KeyboardInput { .. } |
+            WindowEvent::MouseInput { .. } |
+            WindowEvent::CursorMoved { .. } |
+            WindowEvent::MouseWheel { .. } => true,
+            _ => false,
+        }
+    }
+
+    fn update(&mut self) {
+        let now = Instant::now();
+        let dt = now - self.last_update_time;
+        self.last_update_time = now;
+
+        // ---> Input processing:
+        self.camera_controller.process_input(&self.input);
+
+        // ---> DEBUG:
+        if self.input.is_key_pressed(KeyCode::F1) {
+            println!("Camera Position: {:?}", self.camera_state.camera.eye);
+            println!("Camera Target  : {:?}", self.camera_state.camera.target);
+        }
+
+        // ---> Update camera:
+        self.camera_controller.update_camera(&mut self.camera_state.camera, 
+                                             &self.input, dt);
+        
+        // ---> Update camera uniform:
+        self.camera_state.camera_uniform.update_view_proj(&self.camera_state.camera);
+        self.gpu.queue.write_buffer(&self.camera_state.camera_buffer, 0, 
+                                    bytemuck::cast_slice(&[self.camera_state.camera_uniform]));
+        
+        // ---> Clear frame-specific input events:
+        self.input.end_frame();
     }
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -532,41 +594,56 @@ impl ApplicationHandler for App {
                     event_loop: &ActiveEventLoop, 
                     _window_id: WindowId, 
                     event: WindowEvent) {
-        match event {
-            WindowEvent::RedrawRequested => {
-                if let Some(state) = &mut self.state {
-                    match state.render() {
-                        Ok(_) => {
-                            if let Some(window) = &self.window {
-                                window.request_redraw();
+        if let Some(state) = &mut self.state {
+            let input_consumed = state.handle_input(&event);
+
+            if !input_consumed {
+                match event {
+                    WindowEvent::RedrawRequested => {
+                        if let Some(state) = &mut self.state {
+                            match state.render() {
+                                Ok(_) => {
+                                    if let Some(window) = &self.window {
+                                        window.request_redraw();
+                                    }
+                                }
+                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                                    // ---> Reconfigure surface:
+                                    state.resize(state.size);
+                                }
+                                Err(wgpu::SurfaceError::OutOfMemory) => {
+                                    eprintln!("Out of memory!");
+                                    event_loop.exit();
+                                }
+                                Err(wgpu::SurfaceError::Timeout) => {
+                                    eprintln!("Surface timeout!");
+                                }
+                                Err(e) => {
+                                    eprintln!("Render error: {:?}", e);
+                                }
                             }
                         }
-                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                            // ---> Reconfigure surface:
-                            state.resize(state.size);
-                        }
-                        Err(wgpu::SurfaceError::OutOfMemory) => {
-                            eprintln!("Out of memory!");
-                            event_loop.exit();
-                        }
-                        Err(wgpu::SurfaceError::Timeout) => {
-                            eprintln!("Surface timeout!");
-                        }
-                        Err(e) => {
-                            eprintln!("Render error: {:?}", e);
+                    }
+                    WindowEvent::Resized(new_size) => {
+                        if let Some(state) = self.state.as_mut() {
+                            state.resize(new_size);
                         }
                     }
+                    WindowEvent::CloseRequested => {
+                        event_loop.exit();
+                    }
+                    _ => {}
                 }
             }
-            WindowEvent::Resized(new_size) => {
-                if let Some(state) = self.state.as_mut() {
-                    state.resize(new_size);
+        }
+
+        // ---> ESC-Key to close (special case):
+        if let WindowEvent::KeyboardInput { event: key_event, .. } = &event {
+            if let winit::keyboard::PhysicalKey::Code(KeyCode::Escape) = key_event.physical_key {
+                if key_event.state == winit::event::ElementState::Pressed {
+                    event_loop.exit();
                 }
             }
-            WindowEvent::CloseRequested => {
-                event_loop.exit();
-            }
-            _ => {}
         }
     }
 }

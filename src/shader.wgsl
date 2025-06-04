@@ -79,8 +79,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // ---> Combine texture-color with light intensity:
     let final_color = diffuse_color.rgb * light_intensity;
-
-    // ---> Simple return (TODO: Textures...)
+    
     return vec4<f32>(final_color, diffuse_color.a);
 }
 ///// FRAGMENT SHADER //////////////////////////////////////////////////////////////////////////////

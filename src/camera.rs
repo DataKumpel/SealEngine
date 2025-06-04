@@ -1,5 +1,5 @@
-use nalgebra_glm::{self as glm, normalize};
-use crate::input::{self, InputState};
+use nalgebra_glm::{self as glm};
+use crate::input::InputState;
 use winit::keyboard::KeyCode;
 use std::time::Duration;
 
