@@ -1,6 +1,7 @@
 mod model;
 mod camera;
 mod input;
+mod lighting;
 
 // ---> Intern dependencies:
 use camera::Camera;
