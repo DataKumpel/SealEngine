@@ -578,6 +578,9 @@ impl State {
             render_pass.set_bind_group(0, &self.camera_state.camera_bind_group, &[]);
             render_pass.set_bind_group(1, &self.model_uniform_state.model_bind_group, &[]);
 
+            // ---> Set bind group for lighting:
+            render_pass.set_bind_group(3, &self.lighting.bind_group, &[]);
+
             // ---> Render model (if exists...):
             if let Some(model) = &self.model_uniform_state.model {
                 for mesh in &model.meshes {
@@ -589,13 +592,11 @@ impl State {
                     if mesh.material_index < model.materials.len() {
                         render_pass.set_bind_group(2, &model.materials[mesh.material_index].bind_group, &[]);
                     }
-
+                    
+                    // ===>>> DRAW !!!
                     render_pass.draw_indexed(0..mesh.num_indices, 0, 0..1);
                 }
             }
-
-            // ---> Set bind group for lighting:
-            render_pass.set_bind_group(3, &self.lighting.bind_group, &[]);
         }
         // ---> End of render pass...
 
