@@ -312,38 +312,43 @@ pub fn load_model(file_name: &str,
         // ---> Create bind group for this material:
         let bind_group = device.create_bind_group(
             &wgpu::BindGroupDescriptor { 
-                label: Some(&format!("Material Bind Group: {}", name)), 
-                layout: &material_bind_group_layout, 
+                label  : Some(&format!("Material Bind Group: {}", name)), 
+                layout : &material_bind_group_layout, 
                 entries: &[
-                    // Diffuse texture:
-                    wgpu::BindGroupEntry {
-                        binding: 0,
+                    wgpu::BindGroupEntry { // Diffuse texture
+                        binding : 0,
                         resource: wgpu::BindingResource::TextureView(
                             &diffuse_texture.as_ref().unwrap_or(&default_texture).view,
                         ),
                     },
-
-                    // Diffuse sampler:
-                    wgpu::BindGroupEntry {
-                        binding: 1,
+                    wgpu::BindGroupEntry { // Diffuse sampler
+                        binding : 1,
                         resource: wgpu::BindingResource::Sampler(
                             &diffuse_texture.as_ref().unwrap_or(&default_texture).sampler,
                         ),
                     },
-
-                    // Normal texture:
-                    wgpu::BindGroupEntry {
-                        binding: 2,
+                    wgpu::BindGroupEntry { // Normal texture
+                        binding : 2,
                         resource: wgpu::BindingResource::TextureView(
                             &normal_texture.as_ref().unwrap_or(&default_texture).view,
                         ),
                     },
-
-                    // Normal sampler:
-                    wgpu::BindGroupEntry {
-                        binding: 3,
+                    wgpu::BindGroupEntry { // Normal sampler
+                        binding : 3,
                         resource: wgpu::BindingResource::Sampler(
                             &normal_texture.as_ref().unwrap_or(&default_texture).sampler,
+                        ),
+                    },
+                    wgpu::BindGroupEntry { // Metallic roughness texture
+                        binding : 4,
+                        resource: wgpu::BindingResource::TextureView(
+                            &metallic_roughness_texture.as_ref().unwrap_or(&default_texture).view,
+                        ),
+                    },
+                    wgpu::BindGroupEntry { // Metallic roughness sampler
+                        binding : 5,
+                        resource: wgpu::BindingResource::Sampler(
+                            &metallic_roughness_texture.as_ref().unwrap_or(&default_texture).sampler,
                         ),
                     },
                 ],

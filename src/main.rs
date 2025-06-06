@@ -167,7 +167,7 @@ impl CameraState {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer { 
                             ty: wgpu::BufferBindingType::Uniform, 
                             has_dynamic_offset: false, 
@@ -323,10 +323,30 @@ impl State {
                     },
                     // Normal sampler:
                     wgpu::BindGroupLayoutEntry {
-                        binding: 3,
+                        binding   : 3,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        ty        : wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count     : None,
+                    },
+                    // Metallic roughness texture:
+                    wgpu::BindGroupLayoutEntry {
+                        binding   : 4,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty        : wgpu::BindingType::Texture { 
+                            sample_type   : wgpu::TextureSampleType::Float { 
+                                filterable: true, 
+                            }, 
+                            view_dimension: wgpu::TextureViewDimension::D2, 
+                            multisampled  : false,
+                        },
                         count: None,
+                    },
+                    // Metallic roughness sampler:
+                    wgpu::BindGroupLayoutEntry {
+                        binding   : 5,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty        : wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count     : None,
                     },
                 ],
             },
