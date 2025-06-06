@@ -29,17 +29,22 @@ impl Camera {
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CameraUniform {
     view_proj: [[f32; 4]; 4],
+    position : [f32; 3],
+    _padding : f32,
 }
 
 impl CameraUniform {
     pub fn new() -> Self {
         Self {
             view_proj: glm::Mat4::identity().into(),
+            position : [0.0, 0.0, 0.0],
+            _padding : 0.0,
         }
     }
 
     pub fn update_view_proj(&mut self, camera: &Camera) {
         self.view_proj = camera.build_view_projection_matrix().into();
+        self.position  = camera.eye.into();
     }
 }
 ///// CAMERA UNIFORM STRUCTURE /////////////////////////////////////////////////////////////////////

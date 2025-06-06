@@ -236,25 +236,39 @@ pub struct Model {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelUniform {
-    model: [[f32; 4]; 4],
+    model        : [[f32; 4]; 4],
+    normal_matrix: [[f32; 4]; 3],
 }
 
 impl ModelUniform {
     pub fn new() -> Self {
+        let identity = glm::Mat4::identity();
         Self {
-            model: [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-                [0.0, 0.0, 0.0, 1.0],
-            ]
+            model        : identity.into(),
+            normal_matrix: Self::calculate_normal_matrix(&identity),
         }
     }
 
     pub fn from_matrix(matrix: glm::Mat4) -> Self {
         Self {
-            model: matrix.into(),
+            model        : matrix.into(),
+            normal_matrix: Self::calculate_normal_matrix(&matrix),
         }
+    }
+
+    fn calculate_normal_matrix(model_matrix: &glm::Mat4) -> [[f32; 4]; 3] {
+        // ---> Extract upper 3x3 matrix:
+        let model_3x3 = model_matrix.fixed_view::<3, 3>(0, 0).into_owned();
+
+        // ---> Calculate inverse transpose:
+        let normal_matrix = glm::transpose(&glm::inverse(&model_3x3));
+
+        // ---> Convert to Rust-array:
+        [
+            [normal_matrix[(0, 0)], normal_matrix[(0, 1)], normal_matrix[(0, 2)], 0.0],
+            [normal_matrix[(1, 0)], normal_matrix[(1, 1)], normal_matrix[(1, 2)], 0.0],
+            [normal_matrix[(2, 0)], normal_matrix[(2, 1)], normal_matrix[(2, 2)], 0.0],
+        ]
     }
 }
 ///// MODEL UNIFORM STRUCTURE //////////////////////////////////////////////////////////////////////
