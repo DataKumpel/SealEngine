@@ -11,6 +11,7 @@ use model::Model;
 use model::ModelUniform;
 use model::Texture;
 use input::InputState;
+use lighting::LightingSystem;
 
 // ---> Extern dependencies:
 use wgpu::util::DeviceExt;
@@ -274,6 +275,9 @@ struct State {
     // Input & Timing:
     input: InputState,
     last_update_time: Instant,
+
+    // Lighting:
+    lighting: LightingSystem,
 }
 
 impl State {
@@ -333,6 +337,7 @@ impl State {
                               camera_bgl: &wgpu::BindGroupLayout, 
                               model_bgl: &wgpu::BindGroupLayout, 
                               material_bgl: &wgpu::BindGroupLayout,
+                              lighting_bgl: &wgpu::BindGroupLayout,
                               shader: wgpu::ShaderModule) -> wgpu::RenderPipeline{
         let device = &gpu.device;
 
@@ -346,6 +351,7 @@ impl State {
                     &camera_bgl,    // @group(0)
                     &model_bgl,     // @group(1)
                     &material_bgl,  // @group(2)
+                    &lighting_bgl,  // @group(3)
                 ], 
                 push_constant_ranges: &[],
             },
@@ -415,12 +421,16 @@ impl State {
         // ---> Create Depth Texture:
         let depth_texture = create_depth_texture(&gpu.device, &gpu.config);
 
+        // ---> Create Lighting System:
+        let lighting = LightingSystem::new(&gpu.device);
+
         // ---> Create pipeline:
         let render_pipeline = Self::create_render_pipeline(
             &gpu, 
             &camera_state.camera_bind_group_layout, 
             &model_uniform_state.model_bind_group_layout, 
-            &material_bind_group_layout, 
+            &material_bind_group_layout,
+            &lighting.bind_group_layout,
             shader,
         );
 
@@ -436,7 +446,7 @@ impl State {
         let last_update_time = Instant::now();
 
         Self { gpu, size, render_pipeline, camera_state, camera_controller, model_uniform_state,
-               depth_texture, input, last_update_time }
+               depth_texture, input, last_update_time, lighting }
     }
 
     fn handle_input(&mut self, event: &WindowEvent) -> bool {
@@ -545,8 +555,8 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
 
             // ---> Set bind groups for camera and model:
-            render_pass.set_bind_group(0, &self.camera_state.camera_bind_group, &[]);        // Camera data
-            render_pass.set_bind_group(1, &self.model_uniform_state.model_bind_group, &[]);  // Model transformations
+            render_pass.set_bind_group(0, &self.camera_state.camera_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.model_uniform_state.model_bind_group, &[]);
 
             // ---> Render model (if exists...):
             if let Some(model) = &self.model_uniform_state.model {
@@ -563,6 +573,9 @@ impl State {
                     render_pass.draw_indexed(0..mesh.num_indices, 0, 0..1);
                 }
             }
+
+            // ---> Set bind group for lighting:
+            render_pass.set_bind_group(3, &self.lighting.bind_group, &[]);
         }
         // ---> End of render pass...
 
