@@ -44,10 +44,12 @@ struct VertexInput {
 
 // ---> Output from fragment shader:
 struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    @location(0)       frag_pos     : vec3<f32>,
-    @location(1)       tex_coords   : vec2<f32>,
-    @location(2)       tbn_matrix   : mat3x3<f32>,
+    @builtin(position)                             clip_position: vec4<f32>,
+    @location(0) @interpolate(perspective, center) frag_pos     : vec3<f32>,
+    @location(1) @interpolate(perspective, center) tex_coords   : vec2<f32>,
+    @location(2) @interpolate(perspective, center) tangent      : vec3<f32>,
+    @location(3) @interpolate(perspective, center) bitangent    : vec3<f32>,
+    @location(4) @interpolate(perspective, center) normal       : vec3<f32>,
 }
 ///// INPUT / OUTPUT STRUCTURES ////////////////////////////////////////////////////////////////////
 
@@ -63,10 +65,9 @@ fn vs_main(vertex: VertexInput) -> VertexOutput {
     out.tex_coords     = vertex.tex_coords;
 
     // ---> Construction of TBN Matrix:
-    let T = normalize(model.normal_matrix * vertex.tangent);
-    let B = normalize(model.normal_matrix * vertex.bitangent);
-    let N = normalize(model.normal_matrix * vertex.normal);
-    out.tbn_matrix = mat3x3<f32>(T, B, N);
+    out.tangent   = normalize(model.normal_matrix * vertex.tangent);
+    out.bitangent = normalize(model.normal_matrix * vertex.bitangent);
+    out.normal    = normalize(model.normal_matrix * vertex.normal);
 
     return out;
 }
@@ -83,7 +84,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // ---> Normal mapping:
     let tangent_normal = textureSample(normal_texture, normal_sampler, in.tex_coords).rgb * 2.0 - 1.0;
-    let world_normal   = normalize(in.tbn_matrix * tangent_normal);
+    let tbn_matrix     = mat3x3<f32>(in.tangent, in.bitangent, in.normal);
+    let world_normal   = normalize(tbn_matrix * tangent_normal);
 
     // ---> Light calculation:
     let light_dir   = normalize( light.position - in.frag_pos);

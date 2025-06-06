@@ -12,9 +12,11 @@ use nalgebra_glm as glm;
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
-    pub position: [f32; 3],
-    pub normal: [f32; 3],
-    pub tex_coords: [f32; 2],
+    pub position  : [f32; 3],  // @location(0)
+    pub normal    : [f32; 3],  // @location(1)
+    pub tex_coords: [f32; 2],  // @location(2)
+    pub tangent   : [f32; 3],  // @location(3)
+    pub bitangent : [f32; 3],  // @location(4)
 }
 
 impl Vertex {
@@ -29,14 +31,24 @@ impl Vertex {
                     format: wgpu::VertexFormat::Float32x3,
                 },
                 wgpu::VertexAttribute { // Normal
-                    offset: 12,
+                    offset: 12,  // 0 + 4Bytes x 3
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x3,
                 },
                 wgpu::VertexAttribute { // Texture Coordinates
-                    offset: 24,
+                    offset: 24,  // 12 + 4Bytes x 3
                     shader_location: 2,
                     format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute { // Tangent
+                    offset: 32,  // 24 + 4Bytes x 2
+                    shader_location: 3,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute { // Bitangent
+                    offset: 44,  // 32 + 4Bytes x 3
+                    shader_location: 4,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
             ], 
         }
@@ -372,6 +384,21 @@ pub fn load_model(file_name: &str,
                                    .map(|iter| iter.into_f32().collect::<Vec<_>>())
                                    .unwrap_or_else(|| vec![[0.0, 0.0]; positions.len()]);
             
+            // ---> Load tangents:
+            let tangents = reader.read_tangents()
+                                 .map(|iter| iter.map(|t| [t[0], t[1], t[2]]).collect())
+                                 .unwrap_or_else(|| vec![[1.0, 0.0, 0.0]; positions.len()]);
+            
+            // ---> Calculate bitangents:
+            let bitangents = normals.iter()
+                                    .zip(tangents.iter())
+                                    .map(|(n, t)| {
+                                        let n = nalgebra_glm::Vec3::from_row_slice(n);
+                                        let t = nalgebra_glm::Vec3::from_row_slice(t);
+                                        let b = nalgebra_glm::cross(&n, &t).normalize();
+                                        [b.x, b.y, b.z]
+                                    }).collect::<Vec<_>>();
+
             // ---> Load indices:
             let indices = reader.read_indices()
                                 .map(|iter| iter.into_u32().collect::<Vec<_>>())
@@ -381,13 +408,17 @@ pub fn load_model(file_name: &str,
             let vertices: Vec<Vertex> = positions.iter()
                                                  .zip(normals.iter())
                                                  .zip(tex_coords.iter())
-                                                 .map(|((position, normal), tex_coord)| {
+                                                 .zip(tangents.iter())
+                                                 .zip(bitangents.iter())
+                                                 .map(|((((p, n), tc), t), b)| {
                                                     Vertex {
-                                                        position: *position,
-                                                        normal: *normal,
-                                                        tex_coords: *tex_coord,
+                                                        position  : *p,
+                                                        normal    : *n,
+                                                        tex_coords: *tc,
+                                                        tangent   : *t,
+                                                        bitangent : *b,
                                                     }
-                                                 }).collect();
+                                                 }).collect::<Vec<_>>();
 
             // ---> Create vertex- and index-buffer:
             let vertex_buffer = device.create_buffer_init(
