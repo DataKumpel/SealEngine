@@ -67,16 +67,16 @@ impl CameraController {
     pub fn new(speed: f32) -> Self {
         Self {
             speed,
-            sensitivity: 0.4,
-            zoom_speed: 0.2,
-            amount_left: 0.0,
-            amount_right: 0.0,
-            amount_forward: 0.0,
-            amount_backward: 0.0,
-            amount_up: 0.0,
-            amount_down: 0.0,
+            sensitivity      : 1.0,
+            zoom_speed       : 1.0,
+            amount_left      : 0.0,
+            amount_right     : 0.0,
+            amount_forward   : 0.0,
+            amount_backward  : 0.0,
+            amount_up        : 0.0,
+            amount_down      : 0.0,
             mouse_sensitivity: 100.0,
-            is_mouse_pressed: false,
+            is_mouse_pressed : false,
         }
     }
 
@@ -134,20 +134,23 @@ impl CameraController {
 
         // ---> Calculate movement vectors:
         let (yaw_sin, yaw_cos) = self.calculate_yaw_from_camera(camera);
-        let forward = nalgebra_glm::vec3(yaw_cos, 0.0, yaw_sin).normalize();
-        let right = nalgebra_glm::vec3(-yaw_sin, 0.0, yaw_cos).normalize();
-        let up = nalgebra_glm::vec3(0.0, 1.0, 0.0);
+        let forward = nalgebra_glm::vec3( yaw_cos, 0.0, yaw_sin).normalize();
+        let right   = nalgebra_glm::vec3(-yaw_sin, 0.0, yaw_cos).normalize();
+        let up      = nalgebra_glm::vec3(     0.0, 1.0,     0.0);
 
         // ---> Apply movement:
-        camera.eye += forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
-        camera.eye += right * (self.amount_right - self.amount_left) * self.speed * dt;
-        camera.eye += up * (self.amount_up - self.amount_down) * self.speed * dt;
+        camera.eye    += forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
+        camera.eye    += right   * (self.amount_right   - self.amount_left    ) * self.speed * dt;
+        camera.eye    += up      * (self.amount_up      - self.amount_down    ) * self.speed * dt;
+        camera.target += forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
+        camera.target += right   * (self.amount_right   - self.amount_left    ) * self.speed * dt;
+        camera.target += up      * (self.amount_up      - self.amount_down    ) * self.speed * dt;
 
         // ---> Mouse look (only when mouse button is pressed):
         if self.is_mouse_pressed {
             let mouse_delta = input.mouse_delta();
-            let horizontal = mouse_delta.0 as f32 * self.sensitivity * dt;
-            let vertical = mouse_delta.1 as f32 * self.sensitivity * dt;
+            let horizontal  = mouse_delta.0 as f32 * self.sensitivity * dt * (-1.0);
+            let vertical    = mouse_delta.1 as f32 * self.sensitivity * dt * (-1.0);
 
             self.rotate_camera(camera, horizontal, vertical);
         }

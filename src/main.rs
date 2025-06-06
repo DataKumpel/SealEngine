@@ -139,8 +139,8 @@ impl CameraState {
     pub fn new(gpu: &GPU) -> Self {
         let device = &gpu.device;
         let camera = Camera {
-            eye: nalgebra_glm::vec3(0.0, 5.0, -10.0),
-            target: nalgebra_glm::vec3(0.0, 0.0, 0.0),
+            eye: nalgebra_glm::vec3(0.0, 0.0, 0.0),
+            target: nalgebra_glm::vec3(0.0, 0.0, 5.0),
             up: nalgebra_glm::vec3(0.0, 1.0, 0.0),
             aspect: gpu.config.width as f32 / gpu.config.height as f32,
             fovy: 45.0_f32.to_radians(),
@@ -416,8 +416,11 @@ impl State {
 
         // ---> Create pipeline:
         let render_pipeline = Self::create_render_pipeline(
-            &gpu, &camera_state.camera_bind_group_layout, &model_uniform_state.model_bind_group_layout, 
-            &material_bind_group_layout, shader,
+            &gpu, 
+            &camera_state.camera_bind_group_layout, 
+            &model_uniform_state.model_bind_group_layout, 
+            &material_bind_group_layout, 
+            shader,
         );
 
         // ---> Load a Model (test):
@@ -425,13 +428,14 @@ impl State {
                                                       &material_bind_group_layout).ok();
         
         // ---> Create Camera Controller:
-        let camera_controller = CameraController::new(2.5);
+        let camera_controller = CameraController::new(10.0);
 
         // ---> Create Input system:
         let input = InputState::new();
         let last_update_time = Instant::now();
 
-        Self { gpu, size, render_pipeline, camera_state, camera_controller, model_uniform_state, depth_texture, input, last_update_time }
+        Self { gpu, size, render_pipeline, camera_state, camera_controller, model_uniform_state,
+               depth_texture, input, last_update_time }
     }
 
     fn handle_input(&mut self, event: &WindowEvent) -> bool {
