@@ -3,7 +3,7 @@ use winit::window::Window;
 
 ///// GPU STRUCTURE ////////////////////////////////////////////////////////////////////////////////
 pub struct GPU {
-    pub instance: wgpu::Instance,
+    //pub instance: wgpu::Instance,
     pub surface: wgpu::Surface<'static>,
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
@@ -45,7 +45,7 @@ impl GPU {
         };
         surface.configure(&device, &config);
 
-        Self{ instance, surface, adapter, device, queue, config }
+        Self{ /*instance,*/ surface, adapter, device, queue, config }
     }
 
     pub fn load_shaders(&self) -> wgpu::ShaderModule{

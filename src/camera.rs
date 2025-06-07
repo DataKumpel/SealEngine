@@ -67,7 +67,6 @@ pub struct CameraController {
     amount_down: f32,
 
     // Mouse state:
-    mouse_sensitivity: f32,
     is_mouse_pressed: bool,
 }
 
@@ -83,7 +82,6 @@ impl CameraController {
             amount_backward  : 0.0,
             amount_up        : 0.0,
             amount_down      : 0.0,
-            mouse_sensitivity: 100.0,
             is_mouse_pressed : false,
         }
     }
