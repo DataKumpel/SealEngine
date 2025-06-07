@@ -1,20 +1,25 @@
-mod model;
 mod camera;
+mod gpu;
+mod material;
+mod model;
 mod input;
 mod lighting;
+mod texture;
+mod vertex;
 
 // ---> Intern dependencies:
-use camera::Camera;
-use camera::CameraUniform;
 use camera::CameraController;
-use model::Model;
-use model::ModelUniform;
-use model::Texture;
+use camera::CameraState;
+use gpu::GPU;
+use model::ModelUniformState;
 use input::InputState;
 use lighting::LightingSystem;
+use texture::Texture;
+use texture::create_depth_texture;
+use vertex::Vertex;
 
 // ---> Extern dependencies:
-use wgpu::util::DeviceExt;
+//use wgpu::util::DeviceExt;
 use winit::event_loop::ActiveEventLoop;
 use winit::event_loop:: EventLoop;
 use winit::application::ApplicationHandler;
@@ -24,237 +29,7 @@ use winit::window::WindowId;
 use winit::keyboard::KeyCode;
 use std::sync::Arc;
 use std::time::Instant;
-use std::time::Duration;
 
-
-///// DEPTH BUFFER CREATION PROCEDURE //////////////////////////////////////////////////////////////
-fn create_depth_texture(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Texture {
-    let size = wgpu::Extent3d {
-        width: config.width,
-        height: config.height,
-        depth_or_array_layers: 1,
-    };
-
-    let desc = wgpu::TextureDescriptor {
-        label: Some("Depth Texture"),
-        size: size,
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Depth32Float,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-        view_formats: &[],
-    };
-
-    let texture = device.create_texture(&desc);
-    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let sampler = device.create_sampler(
-        &wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
-            lod_min_clamp: 0.0,
-            lod_max_clamp: 100.0,
-            ..Default::default()
-        },
-    );
-
-    Texture { texture, view, sampler }
-}
-///// DEPTH BUFFER CREATION PROCEDURE //////////////////////////////////////////////////////////////
-
-///// GPU STRUCTURE ////////////////////////////////////////////////////////////////////////////////
-struct GPU {
-    instance: wgpu::Instance,
-    surface: wgpu::Surface<'static>,
-    adapter: wgpu::Adapter,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-}
-
-impl GPU {
-    pub async fn new(window: &Arc<Window>, size: winit::dpi::PhysicalSize<u32>) -> Self {
-        let instance = wgpu::Instance::default();
-        
-        let surface = instance.create_surface(window.clone()).unwrap();
-        
-        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptionsBase { 
-            power_preference: wgpu::PowerPreference::HighPerformance, 
-            force_fallback_adapter: false, 
-            compatible_surface: Some(&surface), 
-        }).await.unwrap();
-    
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::default(),
-            memory_hints: wgpu::MemoryHints::default(),
-            label: None,
-        }, None).await.unwrap();
-    
-        let surface_caps = surface.get_capabilities(&adapter);
-        let surface_format = surface_caps.formats[0];
-    
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: surface_caps.present_modes[0],
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2, // typical range 1..3 => higher is better???
-        };
-        surface.configure(&device, &config);
-
-        Self{ instance, surface, adapter, device, queue, config }
-    }
-
-    pub fn load_shaders(&self) -> wgpu::ShaderModule{
-        // TODO: load multiple shaders... later ;)
-        self.device.create_shader_module(
-            wgpu::ShaderModuleDescriptor { 
-                label: Some("Shader"), 
-                source: wgpu::ShaderSource::Wgsl(
-                    std::fs::read_to_string("./src/shader.wgsl").unwrap().into(), 
-                ),
-            }
-        )
-    }
-}
-///// GPU STRUCTURE ////////////////////////////////////////////////////////////////////////////////
-
-///// CAMERA STATE STRUCTURE ///////////////////////////////////////////////////////////////////////
-struct CameraState {
-    camera: Camera,
-    camera_uniform: CameraUniform,
-    camera_buffer: wgpu::Buffer,
-    camera_bind_group_layout: wgpu::BindGroupLayout,
-    camera_bind_group: wgpu::BindGroup,
-}
-
-impl CameraState {
-    pub fn new(gpu: &GPU) -> Self {
-        let device = &gpu.device;
-        let camera = Camera {
-            eye: nalgebra_glm::vec3(0.0, 0.0, 0.0),
-            target: nalgebra_glm::vec3(0.0, 0.0, 5.0),
-            up: nalgebra_glm::vec3(0.0, 1.0, 0.0),
-            aspect: gpu.config.width as f32 / gpu.config.height as f32,
-            fovy: 45.0_f32.to_radians(),
-            z_near: 0.1,
-            z_far: 100.0,
-        };
-
-        let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
-
-        let camera_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Camera Buffer"),
-                contents: bytemuck::cast_slice(&[camera_uniform]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            },
-        );
-
-        let camera_bind_group_layout = device.create_bind_group_layout(
-            &wgpu::BindGroupLayoutDescriptor { 
-                label: Some("Camera bind group layout"), 
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer { 
-                            ty: wgpu::BufferBindingType::Uniform, 
-                            has_dynamic_offset: false, 
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                ],
-            },
-        );
-
-        let camera_bind_group = device.create_bind_group(
-            &wgpu::BindGroupDescriptor { 
-                label: Some("Camera bind group"), 
-                layout: &camera_bind_group_layout, 
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: camera_buffer.as_entire_binding(),
-                    },
-                ], 
-            },
-        );
-
-        Self { camera, camera_uniform, camera_buffer, camera_bind_group_layout, camera_bind_group }
-    }
-}
-///// CAMERA STATE STRUCTURE ///////////////////////////////////////////////////////////////////////
-
-///// MODEL UNIFORM STATE STRUCTURE ////////////////////////////////////////////////////////////////
-struct ModelUniformState {
-    model: Option<Model>,
-    model_uniform: ModelUniform,
-    model_buffer: wgpu::Buffer,
-    model_bind_group_layout: wgpu::BindGroupLayout,
-    model_bind_group: wgpu::BindGroup,
-}
-
-impl ModelUniformState {
-    pub fn new(gpu: &GPU) -> Self {
-        let device = &gpu.device;
-        
-        let model_uniform = ModelUniform::new();
-
-        let model_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Model Buffer"),
-                contents: bytemuck::cast_slice(&[model_uniform]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            },
-        );
-
-        let model_bind_group_layout = device.create_bind_group_layout(
-            &wgpu::BindGroupLayoutDescriptor { 
-                label: Some("model bind group layout"), 
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
-                        ty: wgpu::BindingType::Buffer { 
-                            ty: wgpu::BufferBindingType::Uniform, 
-                            has_dynamic_offset: false, 
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                ] ,
-            },
-        );
-
-        let model_bind_group = device.create_bind_group(
-            &wgpu::BindGroupDescriptor { 
-                label: Some("model bind group"), 
-                layout: &model_bind_group_layout, 
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: model_buffer.as_entire_binding(),
-                    }
-                ], 
-            },
-        );
-
-        Self { model: None, model_uniform, model_buffer, model_bind_group_layout, model_bind_group }
-    }
-}
-///// MODEL UNIFORM STATE STRUCTURE ////////////////////////////////////////////////////////////////
 
 ///// STATE STRUCTURE //////////////////////////////////////////////////////////////////////////////
 struct State {
@@ -385,7 +160,7 @@ impl State {
                     module: &shader, 
                     entry_point: Some("vs_main"), 
                     compilation_options: wgpu::PipelineCompilationOptions::default(), 
-                    buffers: &[model::Vertex::desc()], 
+                    buffers: &[Vertex::desc()], 
                 }, 
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,

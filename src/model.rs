@@ -6,214 +6,13 @@
 
 use wgpu::util::DeviceExt;
 use nalgebra_glm as glm;
+use crate::gpu::GPU;
+use crate::material::Material;
+use crate::texture::create_default_texture;
+use crate::texture::load_texture_from_image;
+use crate::vertex::Vertex;
 
 
-///// VERTEX STRUCTURE /////////////////////////////////////////////////////////////////////////////
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Vertex {
-    pub position  : [f32; 3],  // @location(0)
-    pub normal    : [f32; 3],  // @location(1)
-    pub tex_coords: [f32; 2],  // @location(2)
-    pub tangent   : [f32; 3],  // @location(3)
-    pub bitangent : [f32; 3],  // @location(4)
-}
-
-impl Vertex {
-    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        wgpu::VertexBufferLayout { 
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress, 
-            step_mode: wgpu::VertexStepMode::Vertex, 
-            attributes: &[
-                wgpu::VertexAttribute { // Position
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute { // Normal
-                    offset: 12,  // 0 + 4Bytes x 3
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute { // Texture Coordinates
-                    offset: 24,  // 12 + 4Bytes x 3
-                    shader_location: 2,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-                wgpu::VertexAttribute { // Tangent
-                    offset: 32,  // 24 + 4Bytes x 2
-                    shader_location: 3,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute { // Bitangent
-                    offset: 44,  // 32 + 4Bytes x 3
-                    shader_location: 4,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-            ], 
-        }
-    }
-}
-///// VERTEX STRUCTURE /////////////////////////////////////////////////////////////////////////////
-
-///// TEXTURE STRUCTURE ////////////////////////////////////////////////////////////////////////////
-#[derive(Debug)]
-pub struct Texture {
-    pub texture: wgpu::Texture,
-    pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
-}
-///// TEXTURE STRUCTURE ////////////////////////////////////////////////////////////////////////////
-
-///// TEXTURE LOADING PROCEDURE ////////////////////////////////////////////////////////////////////
-pub fn load_texture_from_image(image: &gltf::image::Data, 
-                               device: &wgpu::Device, 
-                               queue: &wgpu::Queue, 
-                               label: Option<&str>) -> anyhow::Result<Texture> {
-        // ---> Convert image to RGBA:
-        let dynamic_image = match image.format {
-            gltf::image::Format::R8G8B8 => {
-                let rgb_image = image::RgbImage::from_raw(image.width, image.height, image.pixels.clone())
-                                                 .ok_or_else(|| anyhow::anyhow!("Failed to create RGB image!"))?;
-                image::DynamicImage::ImageRgb8(rgb_image)
-            },
-            gltf::image::Format::R8G8B8A8 => {
-                let rgba_image = image::RgbaImage::from_raw(image.width, image.height, image.pixels.clone())
-                                                   .ok_or_else(|| anyhow::anyhow!("Failed to create RGBA image!"))?;
-                image::DynamicImage::ImageRgba8(rgba_image)
-            },
-            gltf::image::Format::R8 => {
-                let gray_image = image::GrayImage::from_raw(image.width, image.height, image.pixels.clone())
-                                                   .ok_or_else(|| anyhow::anyhow!("Failed to create gray image!"))?;
-                image::DynamicImage::ImageLuma8(gray_image)
-            }
-            gltf::image::Format::R8G8 => {
-                let gray_alpha_image = image::GrayAlphaImage::from_raw(image.width, image.height, image.pixels.clone())
-                                                              .ok_or_else(|| anyhow::anyhow!("Failed to create gray alpha image!"))?;
-                image::DynamicImage::ImageLumaA8(gray_alpha_image)
-            },
-
-            // Let's assume those never happen :D
-            gltf::image::Format::R16 => todo!(),
-            gltf::image::Format::R16G16 => todo!(),
-            gltf::image::Format::R16G16B16 => todo!(),
-            gltf::image::Format::R16G16B16A16 => todo!(),
-            gltf::image::Format::R32G32B32FLOAT => todo!(),
-            gltf::image::Format::R32G32B32A32FLOAT => todo!(),
-        };
-        
-        let rgba = dynamic_image.to_rgba8();
-        
-        let size = wgpu::Extent3d {
-            width: rgba.width(),
-            height: rgba.height(),
-            depth_or_array_layers: 1,
-        };
-
-        let texture = device.create_texture(
-            &wgpu::TextureDescriptor {
-                label,
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-        );
-
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                aspect: wgpu::TextureAspect::All,
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
-            &rgba,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * rgba.width()),
-                rows_per_image: Some(rgba.height()),
-            },
-            size,
-        );
-
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(
-            &wgpu::SamplerDescriptor {
-                address_mode_u: wgpu::AddressMode::Repeat,
-                address_mode_v: wgpu::AddressMode::Repeat,
-                address_mode_w: wgpu::AddressMode::Repeat,
-                mag_filter: wgpu::FilterMode::Linear,
-                min_filter: wgpu::FilterMode::Nearest,
-                ..Default::default()
-            },
-        );
-
-        Ok(Texture { texture, view, sampler })
-    }
-///// TEXTURE LOADING PROCEDURE ////////////////////////////////////////////////////////////////////
-
-///// DEFAULT WHITE TEXTURE PROCEDURE //////////////////////////////////////////////////////////////
-fn create_default_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> anyhow::Result<Texture> {
-    let size = wgpu::Extent3d {
-        width: 1,
-        height: 1,
-        depth_or_array_layers: 1,
-    };
-
-    let texture = device.create_texture(
-        &wgpu::TextureDescriptor {
-            label: Some("Default Texture"),
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        },
-    );
-
-    // ---> Data for a white pixel:
-    let white_pixel: [u8; 4] = [255, 255, 255, 255];
-
-    queue.write_texture(
-        wgpu::TexelCopyTextureInfo {
-            aspect: wgpu::TextureAspect::All,
-            texture: &texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-        },
-        &white_pixel,
-        wgpu::TexelCopyBufferLayout {
-            offset: 0,
-            bytes_per_row: Some(4),
-            rows_per_image: Some(1),
-        },
-        size,
-    );
-
-    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
-
-    Ok(Texture { texture, view, sampler })
-}
-///// DEFAULT WHITE TEXTURE PROCEDURE //////////////////////////////////////////////////////////////
-
-///// MATERIAL STRUCTURE ///////////////////////////////////////////////////////////////////////////
-pub struct Material {
-    pub name: String,
-    pub diffuse_texture: Option<Texture>,
-    pub normal_texture: Option<Texture>,
-    pub metallic_roughness_texture: Option<Texture>,
-    pub base_color_factor: [f32; 4],  // RGBA values for color
-    pub metallic_factor: f32,
-    pub roughness_factor: f32,
-    pub bind_group: wgpu::BindGroup,  // For the shader...
-}
-///// MATERIAL STRUCTURE ///////////////////////////////////////////////////////////////////////////
 
 ///// MESH STRUCTURE ///////////////////////////////////////////////////////////////////////////////
 pub struct Mesh {
@@ -272,6 +71,65 @@ impl ModelUniform {
     }
 }
 ///// MODEL UNIFORM STRUCTURE //////////////////////////////////////////////////////////////////////
+
+///// MODEL UNIFORM STATE STRUCTURE ////////////////////////////////////////////////////////////////
+pub struct ModelUniformState {
+    pub model: Option<Model>,
+    pub model_uniform: ModelUniform,
+    pub model_buffer: wgpu::Buffer,
+    pub model_bind_group_layout: wgpu::BindGroupLayout,
+    pub model_bind_group: wgpu::BindGroup,
+}
+
+impl ModelUniformState {
+    pub fn new(gpu: &GPU) -> Self {
+        let device = &gpu.device;
+        
+        let model_uniform = ModelUniform::new();
+
+        let model_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Model Buffer"),
+                contents: bytemuck::cast_slice(&[model_uniform]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            },
+        );
+
+        let model_bind_group_layout = device.create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor { 
+                label: Some("model bind group layout"), 
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer { 
+                            ty: wgpu::BufferBindingType::Uniform, 
+                            has_dynamic_offset: false, 
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ] ,
+            },
+        );
+
+        let model_bind_group = device.create_bind_group(
+            &wgpu::BindGroupDescriptor { 
+                label: Some("model bind group"), 
+                layout: &model_bind_group_layout, 
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: model_buffer.as_entire_binding(),
+                    }
+                ], 
+            },
+        );
+
+        Self { model: None, model_uniform, model_buffer, model_bind_group_layout, model_bind_group }
+    }
+}
+///// MODEL UNIFORM STATE STRUCTURE ////////////////////////////////////////////////////////////////
 
 ///// MODEL LOADING PROCEDURE //////////////////////////////////////////////////////////////////////
 pub fn load_model(file_name: &str, 

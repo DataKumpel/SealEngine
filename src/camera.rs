@@ -1,7 +1,10 @@
 use nalgebra_glm::{self as glm};
-use crate::input::InputState;
-use winit::keyboard::KeyCode;
 use std::time::Duration;
+use wgpu::util::DeviceExt;
+use winit::keyboard::KeyCode;
+
+use crate::input::InputState;
+use crate::gpu::GPU;
 
 
 ///// CAMERA STRUCTURE /////////////////////////////////////////////////////////////////////////////
@@ -199,3 +202,72 @@ impl CameraController {
     }
 }
 ///// CAMERA CONTROLLER STRUCTURE //////////////////////////////////////////////////////////////////
+
+///// CAMERA STATE STRUCTURE ///////////////////////////////////////////////////////////////////////
+pub struct CameraState {
+    pub camera: Camera,
+    pub camera_uniform: CameraUniform,
+    pub camera_buffer: wgpu::Buffer,
+    pub camera_bind_group_layout: wgpu::BindGroupLayout,
+    pub camera_bind_group: wgpu::BindGroup,
+}
+
+impl CameraState {
+    pub fn new(gpu: &GPU) -> Self {
+        let device = &gpu.device;
+        let camera = Camera {
+            eye: nalgebra_glm::vec3(0.0, 0.0, 0.0),
+            target: nalgebra_glm::vec3(0.0, 0.0, 5.0),
+            up: nalgebra_glm::vec3(0.0, 1.0, 0.0),
+            aspect: gpu.config.width as f32 / gpu.config.height as f32,
+            fovy: 45.0_f32.to_radians(),
+            z_near: 0.1,
+            z_far: 100.0,
+        };
+
+        let mut camera_uniform = CameraUniform::new();
+        camera_uniform.update_view_proj(&camera);
+
+        let camera_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Camera Buffer"),
+                contents: bytemuck::cast_slice(&[camera_uniform]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            },
+        );
+
+        let camera_bind_group_layout = device.create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor { 
+                label: Some("Camera bind group layout"), 
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer { 
+                            ty: wgpu::BufferBindingType::Uniform, 
+                            has_dynamic_offset: false, 
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+            },
+        );
+
+        let camera_bind_group = device.create_bind_group(
+            &wgpu::BindGroupDescriptor { 
+                label: Some("Camera bind group"), 
+                layout: &camera_bind_group_layout, 
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: camera_buffer.as_entire_binding(),
+                    },
+                ], 
+            },
+        );
+
+        Self { camera, camera_uniform, camera_buffer, camera_bind_group_layout, camera_bind_group }
+    }
+}
+///// CAMERA STATE STRUCTURE ///////////////////////////////////////////////////////////////////////

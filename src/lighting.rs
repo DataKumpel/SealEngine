@@ -26,10 +26,10 @@ pub struct LightingSystem {
 impl LightingSystem {
     pub fn new(device: &wgpu::Device) -> Self {
         let uniform = LightUniform {
-            position : [2.0, 4.0, 2.0],
+            position : [-5.5, 6.0, 25.0],
             _padding : 0.0,
             color    : [1.0; 3],
-            intensity: 1.5,
+            intensity: 10.5,
             _padding2: 0.0,
         };
 
