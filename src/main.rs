@@ -4,6 +4,7 @@ mod material;
 mod model;
 mod input;
 mod lighting;
+mod scene;
 mod state;
 mod texture;
 mod vertex;

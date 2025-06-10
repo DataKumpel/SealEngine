@@ -1,6 +1,7 @@
 use crate::texture::Texture;
 
 ///// MATERIAL STRUCTURE ///////////////////////////////////////////////////////////////////////////
+#[derive(Debug)]
 pub struct Material {
     pub name: String,
     pub diffuse_texture: Option<Texture>,
