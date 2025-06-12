@@ -136,7 +136,7 @@ impl SceneGraph {
         }
     }
 
-    fn mark_transform_dirty(&mut self, handle: NodeHandle) {
+    pub fn mark_transform_dirty(&mut self, handle: NodeHandle) {
         if !self.dirty_transforms.contains(&handle) {
             self.dirty_transforms.push(handle);
         }

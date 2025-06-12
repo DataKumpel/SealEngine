@@ -14,30 +14,37 @@ use crate::texture::create_depth_texture;
 use crate::input::InputState;
 use crate::lighting::LightingSystem;
 use crate::vertex::Vertex;
+use crate::scene::SceneGraph;
+use crate::scene::NodeHandle;
+use crate::scene::Transform;
 
 
 ///// STATE STRUCTURE //////////////////////////////////////////////////////////////////////////////
 pub struct State {
-    pub gpu: GPU,
-    pub size: winit::dpi::PhysicalSize<u32>,
-    pub render_pipeline: wgpu::RenderPipeline,
+    pub gpu                : GPU,
+    pub size               : winit::dpi::PhysicalSize<u32>,
+    pub render_pipeline    : wgpu::RenderPipeline,
 
     // Camera:
-    pub camera_state: CameraState,
-    pub camera_controller: CameraController,
+    pub camera_state       : CameraState,
+    pub camera_controller  : CameraController,
 
     // Model:
     pub model_uniform_state: ModelUniformState,
 
     // Depth-buffer:
-    pub depth_texture: Texture,
+    pub depth_texture      : Texture,
 
     // Input & Timing:
-    pub input: InputState,
-    pub last_update_time: Instant,
+    pub input              : InputState,
+    pub last_update_time   : Instant,
 
     // Lighting:
-    pub lighting: LightingSystem,
+    pub lighting           : LightingSystem,
+
+    // Scene:
+    pub scene              : SceneGraph,
+    pub camera_node        : NodeHandle,
 }
 
 impl State {
@@ -50,36 +57,32 @@ impl State {
                 entries: &[
                     // Diffuse texture:
                     wgpu::BindGroupLayoutEntry {
-                        binding: 0,
+                        binding   : 0,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture { 
-                            sample_type: wgpu::TextureSampleType::Float { 
-                                filterable: true 
-                            }, 
+                        ty        : wgpu::BindingType::Texture { 
+                            sample_type   : wgpu::TextureSampleType::Float { filterable: true }, 
                             view_dimension: wgpu::TextureViewDimension::D2, 
-                            multisampled: false,
+                            multisampled  : false,
                         },
-                        count: None,
+                        count     : None,
                     },
                     // Diffuse sampler:
                     wgpu::BindGroupLayoutEntry {
-                        binding: 1,
+                        binding   : 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
+                        ty        : wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count     : None,
                     },
                     // Normal texture (optional):
                     wgpu::BindGroupLayoutEntry {
-                        binding: 2,
+                        binding   : 2,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture { 
-                            sample_type: wgpu::TextureSampleType::Float { 
-                                filterable: true 
-                            }, 
+                        ty        : wgpu::BindingType::Texture { 
+                            sample_type   : wgpu::TextureSampleType::Float { filterable: true }, 
                             view_dimension: wgpu::TextureViewDimension::D2, 
-                            multisampled: false,
+                            multisampled  : false,
                         },
-                        count: None,
+                        count     : None,
                     },
                     // Normal sampler:
                     wgpu::BindGroupLayoutEntry {
@@ -93,9 +96,7 @@ impl State {
                         binding   : 4,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty        : wgpu::BindingType::Texture { 
-                            sample_type   : wgpu::TextureSampleType::Float { 
-                                filterable: true, 
-                            }, 
+                            sample_type   : wgpu::TextureSampleType::Float { filterable: true }, 
                             view_dimension: wgpu::TextureViewDimension::D2, 
                             multisampled  : false,
                         },
@@ -113,21 +114,21 @@ impl State {
         )
     }
 
-    fn create_render_pipeline(gpu: &GPU, 
-                              camera_bgl: &wgpu::BindGroupLayout, 
-                              model_bgl: &wgpu::BindGroupLayout, 
+    fn create_render_pipeline(gpu         : &GPU, 
+                              camera_bgl  : &wgpu::BindGroupLayout, 
+                              model_bgl   : &wgpu::BindGroupLayout, 
                               material_bgl: &wgpu::BindGroupLayout,
                               lighting_bgl: &wgpu::BindGroupLayout,
-                              shader: wgpu::ShaderModule) -> wgpu::RenderPipeline{
+                              shader      : wgpu::ShaderModule) -> wgpu::RenderPipeline{
         let device = &gpu.device;
 
-        let surface_caps = gpu.surface.get_capabilities(&gpu.adapter);
+        let surface_caps   = gpu.surface.get_capabilities(&gpu.adapter);
         let surface_format = surface_caps.formats[0];
 
         let render_pipeline_layout = device.create_pipeline_layout(
             &wgpu::PipelineLayoutDescriptor { 
-                label: Some("Render Pipeline Layout"), 
-                bind_group_layouts: &[
+                label               : Some("Render Pipeline Layout"), 
+                bind_group_layouts  : &[
                     &camera_bgl,    // @group(0)
                     &model_bgl,     // @group(1)
                     &material_bgl,  // @group(2)
@@ -139,43 +140,43 @@ impl State {
 
         device.create_render_pipeline(
             &wgpu::RenderPipelineDescriptor { 
-                label: Some("Render Pipeline"), 
-                layout: Some(&render_pipeline_layout), 
-                vertex: wgpu::VertexState { 
-                    module: &shader, 
-                    entry_point: Some("vs_main"), 
+                label        : Some("Render Pipeline"), 
+                layout       : Some(&render_pipeline_layout), 
+                vertex       : wgpu::VertexState { 
+                    module             : &shader, 
+                    entry_point        : Some("vs_main"), 
                     compilation_options: wgpu::PipelineCompilationOptions::default(), 
-                    buffers: &[Vertex::desc()], 
+                    buffers            : &[Vertex::desc()], 
                 }, 
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
+                primitive    : wgpu::PrimitiveState {
+                    topology          : wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
-                    front_face: wgpu::FrontFace::Ccw,  // Right handed coordinate space!
-                    cull_mode: Some(wgpu::Face::Back),
-                    unclipped_depth: false,
-                    polygon_mode: wgpu::PolygonMode::Fill,
-                    conservative: false,
+                    front_face        : wgpu::FrontFace::Ccw,  // Right handed coordinate space!
+                    cull_mode         : Some(wgpu::Face::Back),
+                    unclipped_depth   : false,
+                    polygon_mode      : wgpu::PolygonMode::Fill,
+                    conservative      : false,
                 }, 
                 depth_stencil: Some(wgpu::DepthStencilState { 
-                    format: wgpu::TextureFormat::Depth32Float, 
+                    format             : wgpu::TextureFormat::Depth32Float, 
                     depth_write_enabled: true, 
-                    depth_compare: wgpu::CompareFunction::Less, 
-                    stencil: wgpu::StencilState::default(), 
-                    bias: wgpu::DepthBiasState::default(),
+                    depth_compare      : wgpu::CompareFunction::Less, 
+                    stencil            : wgpu::StencilState::default(), 
+                    bias               : wgpu::DepthBiasState::default(),
                 }), 
-                multisample: wgpu::MultisampleState::default(), 
-                fragment: Some(wgpu::FragmentState { 
-                    module: &shader, 
-                    entry_point: Some("fs_main"), 
+                multisample  : wgpu::MultisampleState::default(), 
+                fragment     : Some(wgpu::FragmentState { 
+                    module             : &shader, 
+                    entry_point        : Some("fs_main"), 
                     compilation_options: wgpu::PipelineCompilationOptions::default(), 
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: surface_format,
-                        blend: Some(wgpu::BlendState::REPLACE),
+                    targets            : &[Some(wgpu::ColorTargetState {
+                        format    : surface_format,
+                        blend     : Some(wgpu::BlendState::REPLACE),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                 }), 
-                multiview: None, 
-                cache: None,
+                multiview    : None, 
+                cache        : None,
              },
         )
     }
@@ -225,8 +226,20 @@ impl State {
         let input = InputState::new();
         let last_update_time = Instant::now();
 
+        // ---> Create scene graph:
+        let mut scene = SceneGraph::new("Root Scene".to_string());
+
+        // ---> Create camera node:
+        let camera_node = scene.create_node("Main Camera".to_string());
+        scene.attach_to_root(camera_node).unwrap();
+
+        // ---> Set initial camera transform:
+        let mut camera_transform  = Transform::new();
+        camera_transform.position = camera_state.camera.eye;
+        scene.set_transform(camera_node, camera_transform);
+
         Self { gpu, size, render_pipeline, camera_state, camera_controller, model_uniform_state,
-               depth_texture, input, last_update_time, lighting }
+               depth_texture, input, last_update_time, lighting, scene, camera_node }
     }
 
     pub fn handle_input(&mut self, event: &WindowEvent) -> bool {
@@ -243,8 +256,8 @@ impl State {
     }
 
     pub fn update(&mut self) {
-        let now = Instant::now();
-        let dt = now - self.last_update_time;
+        let now               = Instant::now();
+        let dt                = now - self.last_update_time;
         self.last_update_time = now;
 
         // ---> Input processing:
@@ -260,6 +273,15 @@ impl State {
         self.camera_controller.update_camera(&mut self.camera_state.camera, 
                                              &self.input, dt);
         
+        // ---> Update scene transforms (must be done before camera sync!):
+        self.scene.update_transforms();
+        
+        // ---> Sync camera with scene node (if camera is part of the scene):
+        if let Some(camera_node) = self.scene.get_node_mut(self.camera_node) {
+            camera_node.transform.position = self.camera_state.camera.eye;
+            self.scene.mark_transform_dirty(self.camera_node);
+        }
+
         // ---> Update camera uniform:
         self.camera_state.camera_uniform.update_view_proj(&self.camera_state.camera);
         self.gpu.queue.write_buffer(&self.camera_state.camera_buffer, 0, 
