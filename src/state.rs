@@ -238,6 +238,24 @@ impl State {
         camera_transform.position = camera_state.camera.eye;
         scene.set_transform(camera_node, camera_transform);
 
+        // ---> Load model and add it to scene:
+        if let Ok(model) = load_model("models/Bridge.glb", 
+                                      &gpu.device, 
+                                      &gpu.queue, 
+                                      &material_bind_group_layout) {
+            // ---> Create scene node for the model:
+            let model_node = scene.create_node("Bridge".to_string());
+            scene.attach_to_root(model_node).unwrap();
+
+            // ---> Set model in scene:
+            scene.set_model(model_node, model);
+
+            // ---> Position the model:
+            let mut model_transform  = Transform::new();
+            model_transform.position = nalgebra_glm::vec3(0.0, -2.0, 0.0);
+            scene.set_transform(model_node, model_transform);
+        }
+
         Self { gpu, size, render_pipeline, camera_state, camera_controller, model_uniform_state,
                depth_texture, input, last_update_time, lighting, scene, camera_node }
     }
@@ -304,11 +322,16 @@ impl State {
             self.depth_texture = create_depth_texture(&self.gpu.device, &self.gpu.config);
 
             // ---> Update camera aspect ratio:
-            self.camera_state.camera.aspect = self.gpu.config.width as f32 / self.gpu.config.height as f32;
+            let width  = self.gpu.config.width  as f32;
+            let height = self.gpu.config.height as f32;
+            self.camera_state.camera.aspect = width / height;
             self.camera_state.camera_uniform.update_view_proj(&self.camera_state.camera);
 
             // ---> Update camera uniform buffer:
-            self.gpu.queue.write_buffer(&self.camera_state.camera_buffer, 0, bytemuck::cast_slice(&[self.camera_state.camera_uniform]));
+            self.gpu.queue.write_buffer(
+                &self.camera_state.camera_buffer, 0, 
+                bytemuck::cast_slice(&[self.camera_state.camera_uniform])
+            );
         }
     }
 
@@ -372,7 +395,9 @@ impl State {
                     
                     // ---> Set material bind group (if implemented):
                     if mesh.material_index < model.materials.len() {
-                        render_pass.set_bind_group(2, &model.materials[mesh.material_index].bind_group, &[]);
+                        render_pass.set_bind_group(
+                            2, &model.materials[mesh.material_index].bind_group, &[],
+                        );
                     }
                     
                     // ===>>> DRAW !!!
