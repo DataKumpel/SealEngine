@@ -17,19 +17,40 @@ use crate::vertex::Vertex;
 ///// MESH STRUCTURE ///////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
 pub struct Mesh {
-    pub name: String,
-    pub vertex_buffer: wgpu::Buffer,
-    pub index_buffer: wgpu::Buffer,
-    pub num_indices: u32,
+    pub name          : String,
+    pub vertex_buffer : wgpu::Buffer,
+    pub index_buffer  : wgpu::Buffer,
+    pub num_indices   : u32,
     pub material_index: usize,
+}
+
+impl Clone for Mesh {
+    fn clone(&self) -> Self {
+        Self { 
+            name          : self.name.clone(), 
+            vertex_buffer : self.vertex_buffer.clone(), 
+            index_buffer  : self.index_buffer.clone(), 
+            num_indices   : self.num_indices, 
+            material_index: self.material_index,
+        }
+    }
 }
 ///// MESH STRUCTURE ///////////////////////////////////////////////////////////////////////////////
 
 ///// MODEL STRUCTURE //////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
 pub struct Model {
-    pub meshes: Vec<Mesh>,
+    pub meshes   : Vec<Mesh>,
     pub materials: Vec<Material>,
+}
+
+impl Clone for Model {
+    fn clone(&self) -> Self {
+        Self { 
+            meshes   : self.meshes.clone(), 
+            materials: self.materials.clone(),
+        }
+    }
 }
 ///// MODEL STRUCTURE //////////////////////////////////////////////////////////////////////////////
 
@@ -76,11 +97,11 @@ impl ModelUniform {
 
 ///// MODEL UNIFORM STATE STRUCTURE ////////////////////////////////////////////////////////////////
 pub struct ModelUniformState {
-    pub model: Option<Model>,
-    pub model_uniform: ModelUniform,
-    pub model_buffer: wgpu::Buffer,
+    pub model                  : Option<Model>,
+    pub model_uniform          : ModelUniform,
+    pub model_buffer           : wgpu::Buffer,
     pub model_bind_group_layout: wgpu::BindGroupLayout,
-    pub model_bind_group: wgpu::BindGroup,
+    pub model_bind_group       : wgpu::BindGroup,
 }
 
 impl ModelUniformState {
@@ -91,9 +112,9 @@ impl ModelUniformState {
 
         let model_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
-                label: Some("Model Buffer"),
+                label   : Some("Model Buffer"),
                 contents: bytemuck::cast_slice(&[model_uniform]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                usage   : wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             },
         );
 

@@ -4,8 +4,18 @@
 #[derive(Debug)]
 pub struct Texture {
     pub texture: wgpu::Texture,
-    pub view: wgpu::TextureView,
+    pub view   : wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+}
+
+impl Clone for Texture {
+    fn clone(&self) -> Self {
+        Self { 
+            texture: self.texture.clone(), 
+            view   : self.view.clone(),
+            sampler: self.sampler.clone(),
+        }
+    }
 }
 ///// TEXTURE STRUCTURE ////////////////////////////////////////////////////////////////////////////
 

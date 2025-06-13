@@ -216,8 +216,8 @@ impl State {
         );
 
         // ---> Load a Model (test):
-        model_uniform_state.model = load_model("models/Bridge.glb", &gpu.device, &gpu.queue, 
-                                               &material_bind_group_layout).ok();
+        // model_uniform_state.model = load_model("models/Bridge.glb", &gpu.device, &gpu.queue, 
+        //                                        &material_bind_group_layout).ok();
         
         // ---> Create Camera Controller:
         let camera_controller = CameraController::new(10.0);
@@ -254,7 +254,13 @@ impl State {
             let mut model_transform  = Transform::new();
             model_transform.position = nalgebra_glm::vec3(0.0, -2.0, 0.0);
             scene.set_transform(model_node, model_transform);
+            model_uniform_state.model = scene.get_node(model_node)
+                                             .and_then(|node| node.model.as_ref())
+                                             .cloned();
         }
+
+        // ---> Update scene transforms initially:
+        scene.update_transforms();
 
         Self { gpu, size, render_pipeline, camera_state, camera_controller, model_uniform_state,
                depth_texture, input, last_update_time, lighting, scene, camera_node }

@@ -136,6 +136,15 @@ impl SceneGraph {
         }
     }
 
+    pub fn set_model_ref(&mut self, handle: NodeHandle, model: &Model) -> Result<(), String> {
+        if let Some(node) = self.nodes.get_mut(&handle) {
+            node.model = Some(model.clone());
+            Ok(())
+        } else {
+            Err("Invalid node handle".to_string())
+        }
+    }
+
     pub fn mark_transform_dirty(&mut self, handle: NodeHandle) {
         if !self.dirty_transforms.contains(&handle) {
             self.dirty_transforms.push(handle);
