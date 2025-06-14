@@ -2,8 +2,11 @@ use nalgebra_glm as glm;
 use std::collections::HashMap;
 use wgpu::Device;
 
+use crate::instance;
 use crate::model::Model;
 use crate::material::Material;
+use crate::instance::Instance;
+use crate::instance::InstanceRaw;
 
 
 ///// NODE HANDLE STRUCTURE ////////////////////////////////////////////////////////////////////////
@@ -48,6 +51,7 @@ pub struct SceneNode {
     pub parent         : Option<NodeHandle>,
     pub children       : Vec<NodeHandle>,
     pub model          : Option<Model>,
+    pub instances      : Vec<Instance>,
     pub visible        : bool,
 }
 
@@ -60,8 +64,17 @@ impl SceneNode {
             parent         : None,
             children       : Vec::new(),
             model          : None,
+            instances      : vec![Instance::new()],  // Default single instance...
             visible        : true,
         }
+    }
+
+    pub fn add_instance(&mut self, instance: Instance) {
+        self.instances.push(instance);
+    }
+
+    pub fn set_instances(&mut self, instances: Vec<Instance>) {
+        self.instances = instances;
     }
 }
 ///// SCENE NODE STRUCTURE /////////////////////////////////////////////////////////////////////////
