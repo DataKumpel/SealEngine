@@ -4,6 +4,7 @@ mod material;
 mod model;
 mod input;
 mod instance;
+mod instance_manager;
 mod lighting;
 mod scene;
 mod state;

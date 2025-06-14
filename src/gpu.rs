@@ -6,9 +6,9 @@ pub struct GPU {
     //pub instance: wgpu::Instance,
     pub surface: wgpu::Surface<'static>,
     pub adapter: wgpu::Adapter,
-    pub device: wgpu::Device,
-    pub queue: wgpu::Queue,
-    pub config: wgpu::SurfaceConfiguration,
+    pub device : wgpu::Device,
+    pub queue  : wgpu::Queue,
+    pub config : wgpu::SurfaceConfiguration,
 }
 
 impl GPU {

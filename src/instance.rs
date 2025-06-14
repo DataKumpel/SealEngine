@@ -54,8 +54,8 @@ impl Instance {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct InstanceRaw {
-    model        : [[f32; 4]; 4],  // 4 Bytes * 4 * 4 = 64 Bytes
-    normal_matrix: [[f32; 4]; 3],  // 4 Bytes * 4 * 3 = 48 Bytes
+    pub model        : [[f32; 4]; 4],  // 4 Bytes * 4 * 4 = 64 Bytes
+    pub normal_matrix: [[f32; 4]; 3],  // 4 Bytes * 4 * 3 = 48 Bytes
 }
 
 impl InstanceRaw {
