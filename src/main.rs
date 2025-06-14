@@ -3,6 +3,7 @@ mod gpu;
 mod material;
 mod model;
 mod input;
+mod instance;
 mod lighting;
 mod scene;
 mod state;
