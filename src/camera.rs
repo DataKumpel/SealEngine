@@ -54,26 +54,32 @@ impl CameraUniform {
 
 ///// CAMERA CONTROLLER STRUCTURE //////////////////////////////////////////////////////////////////
 pub struct CameraController {
-    pub speed: f32,
-    pub sensitivity: f32,
-    pub zoom_speed: f32,
+    pub speed        : f32,
+    pub sensitivity  : f32,
+    pub zoom_speed   : f32,
 
     // Movement state:
-    amount_left: f32,
-    amount_right: f32,
-    amount_forward: f32,
-    amount_backward: f32,
-    amount_up:f32,
-    amount_down: f32,
+    amount_left      : f32,
+    amount_right     : f32,
+    amount_forward   : f32,
+    amount_backward  : f32,
+    amount_up        : f32,
+    amount_down      : f32,
+
+    // Turning state:
+    amount_turn_left : f32,
+    amount_turn_right: f32,
+    amount_turn_up   : f32,
+    amount_turn_down : f32,
 
     // Mouse state:
-    is_mouse_pressed: bool,
+    is_mouse_pressed : bool,
 }
 
 impl CameraController {
     pub fn new(speed: f32) -> Self {
         Self {
-            speed,
+            speed            : speed,
             sensitivity      : 1.0,
             zoom_speed       : 1.0,
             amount_left      : 0.0,
@@ -82,6 +88,10 @@ impl CameraController {
             amount_backward  : 0.0,
             amount_up        : 0.0,
             amount_down      : 0.0,
+            amount_turn_left : 0.0,
+            amount_turn_right: 0.0,
+            amount_turn_up   : 0.0,
+            amount_turn_down : 0.0,
             is_mouse_pressed : false,
         }
     }
@@ -116,23 +126,50 @@ impl CameraController {
             self.amount_right = 0.0;
         }
 
-        // ---> SPACE / UP
-        if input.is_key_held(KeyCode::Space) {
+        // ---> UP / E
+        if input.is_key_held(KeyCode::KeyE) {
             self.amount_up = 1.0;
         } else {
             self.amount_up = 0.0;
         }
 
-        // ---> SHIFT / DOWN
-        if input.is_key_held(KeyCode::ShiftLeft) {
+        // ---> DOWN / Q
+        if input.is_key_held(KeyCode::KeyQ) {
             self.amount_down = 1.0;
         } else {
             self.amount_down = 0.0;
         }
         //===== WASD Camera movement ===============================================================
 
-        // ---> Mouse control:
-        self.is_mouse_pressed = input.is_mouse_button_held(winit::event::MouseButton::Left);
+        //===== Arrow keys camera turning ==========================================================
+        // ---> ARROW-LEFT / Turn left
+        if input.is_key_held(KeyCode::ArrowLeft) {
+            self.amount_turn_left = 1.0;
+        } else {
+            self.amount_turn_left = 0.0;
+        }
+
+        // ---> ARROW-RIGHT / Turn right
+        if input.is_key_held(KeyCode::ArrowRight) {
+            self.amount_turn_right = 1.0;
+        } else {
+            self.amount_turn_right = 0.0;
+        }
+
+        // ---> ARROW-UP / Turn up
+        if input.is_key_held(KeyCode::ArrowUp) {
+            self.amount_turn_up = 1.0;
+        } else {
+            self.amount_turn_up = 0.0;
+        }
+
+        // ---> ARROW-DOWN / Turn down
+        if input.is_key_held(KeyCode::ArrowDown) {
+            self.amount_turn_down = 1.0;
+        } else {
+            self.amount_turn_down = 0.0;
+        }
+        //===== Arrow keys camera turning ==========================================================
     }
 
     pub fn update_camera(&mut self, camera: &mut Camera, input: &InputState, dt: Duration) {
@@ -152,34 +189,24 @@ impl CameraController {
         camera.target += right   * (self.amount_right   - self.amount_left    ) * self.speed * dt;
         camera.target += up      * (self.amount_up      - self.amount_down    ) * self.speed * dt;
 
-        // ---> Mouse look (only when mouse button is pressed):
-        if self.is_mouse_pressed {
-            let mouse_delta = input.mouse_delta();
-            let horizontal  = mouse_delta.0 as f32 * self.sensitivity * dt * (-1.0);
-            let vertical    = mouse_delta.1 as f32 * self.sensitivity * dt * (-1.0);
+        // ---> Apply rotation:
+        let horizontal  = (self.amount_turn_left - self.amount_turn_right) * self.sensitivity * dt;
+        let vertical    = (self.amount_turn_up   - self.amount_turn_down ) * self.sensitivity * dt;
 
-            self.rotate_camera(camera, horizontal, vertical);
-        }
-
-        // ---> Zoom with mouse wheel:
-        let wheel_delta = input.mouse_wheel_delta();
-        if wheel_delta != 0.0 {
-            let zoom_direction = (camera.target - camera.eye).normalize();
-            camera.eye += zoom_direction * wheel_delta * self.zoom_speed;
-        }
+        self.rotate_camera(camera, horizontal, vertical);
     }
 
     fn calculate_yaw_from_camera(&self, camera: &Camera) -> (f32, f32) {
         let direction = (camera.target - camera.eye).normalize();
-        let yaw = direction.z.atan2(direction.x);
+        let yaw       = direction.z.atan2(direction.x);
         (yaw.sin(), yaw.cos())
     }
 
     fn rotate_camera(&self, camera: &mut Camera, horizontal: f32, vertical: f32) {
         // ---> Calculate current direction:
         let mut direction = camera.target - camera.eye;
-        let distance = direction.magnitude();
-        direction = direction.normalize();
+        let distance      = direction.magnitude();
+        direction         = direction.normalize();
 
         // ---> Horizontal rotation (yaw):
         let yaw = direction.z.atan2(direction.x) - horizontal;
